@@ -1,0 +1,13 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_src_path: src/python
+module_name: mymodule
+project_authors:
+-   email: alice.wonderland@sdsc.ethz.ch
+    first_name: Alice
+    last_name: Wonderland
+-   email: bob.wonderland@sdsc.ethz.ch
+    first_name: Bob
+    last_name: Wonderland
+project_description: This a repository from a repository template.
+project_url: https://github.com/swissdatasciencecenter/my-project
+project_version: 0.0.1

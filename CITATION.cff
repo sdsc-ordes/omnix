@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "My Project"
+
+authors:
+  - family-names: Wonderland
+    given-names: Alice
+    orcid: "..."
+    affiliation: "SDSC - Swiss Data Science Center"
+  - family-names: Wonderland
+    given-names: Bob
+    orcid: "..."
+    affiliation: "SDSC - Swiss Data Science Center"
+date-released: 2026-42-02
+version: "0.0.1"
+doi: ""
+url: https://github.com/swissdatasciencecenter/my-project
+repository-code: https://github.com/swissdatasciencecenter/my-project
+keywords: []
+license: apache2

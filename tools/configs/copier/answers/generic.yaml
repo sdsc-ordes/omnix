@@ -1,0 +1,23 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_src_path: src/generic
+project_affiliation: SDSC - Swiss Data Science Center
+project_authors:
+-   email: alice.wonderland@sdsc.ethz.ch
+    first_name: Alice
+    last_name: Wonderland
+-   email: bob.wonderland@sdsc.ethz.ch
+    first_name: Bob
+    last_name: Wonderland
+project_description: This a repository from a repository template.
+project_hosts:
+-   host: github.com
+    organization: swissdatasciencecenter
+    repo: my-project
+-   host: gitlab.datascience.ch
+    organization: my-organization
+    repo: my-project
+project_language: python
+project_license: apache2
+project_name: My Project
+project_url: https://github.com/swissdatasciencecenter/my-project
+project_version: 0.0.1
