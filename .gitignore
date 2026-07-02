@@ -30,3 +30,6 @@ __pycache*
 .prettierrc.yaml
 .yamllint.yaml
 .typos.toml
+
+# Environment files
+.env

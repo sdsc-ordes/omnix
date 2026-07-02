@@ -1,20 +1,20 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "My Project"
+title: "OMNIX"
 
 authors:
-  - family-names: Wonderland
-    given-names: Alice
+  - family-names: Lütge
+    given-names: Almut
+    orcid: "https://orcid.org/0000-0003-1104-727X"
+    affiliation: "SDSC - Swiss Data Science Center"
+  - family-names: Franken
+    given-names: Robin
     orcid: "..."
     affiliation: "SDSC - Swiss Data Science Center"
-  - family-names: Wonderland
-    given-names: Bob
-    orcid: "..."
-    affiliation: "SDSC - Swiss Data Science Center"
-date-released: 2026-42-02
+date-released: 2026-02-07
 version: "0.0.1"
 doi: ""
-url: https://github.com/swissdatasciencecenter/my-project
-repository-code: https://github.com/swissdatasciencecenter/my-project
+url: https://github.com/sdsc-ordes/omnix
+repository-code: https://github.com/sdsc-ordes/omnix
 keywords: []
 license: apache2

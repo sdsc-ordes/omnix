@@ -1,10 +1,10 @@
 [project]
-name = "mymodule"
+name = "omnix"
 authors = [
-  { name = "Alice Wonderland", email = "alice.wonderland@sdsc.ethz.ch" },
-  { name = "Bob Wonderland", email = "bob.wonderland@sdsc.ethz.ch" },
+  { name = "Almut Lütge", email = "almut.luetge@sdsc.ethz.ch" },
+  { name = "Robin Franken", email = "robin.franken@epfl.ch" },
 ]
-description = "This a repository from a repository template."
+description = "Slims data extractor for xenograft data"
 readme = "README.md"
 requires-python = ">=3.13"
 version = "0.0.1"
@@ -12,14 +12,10 @@ version = "0.0.1"
 dependencies = [
     "pydantic>=2.10.6",
     "pytest>=8.4.2",
-]
-[dependency-groups]
-dev = [
-    "notebook>=7.3.2",
+    "slims-python-api==6.9.0",
+    "python-dotenv>=1.0.0,<2.0.0",
 ]
 
-[project.scripts]
-cli = 'mymodule.cli:main'
 
 [build-system]
 requires = ["hatchling"]
