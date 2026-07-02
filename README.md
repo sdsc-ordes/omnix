@@ -3,29 +3,19 @@
 </p>
 
 <h1 align="center">
-  my-project
+    omnix
 </h1>
 <p align="center">
 </p>
 
 
-[![Current Release](https://img.shields.io/github/release/swissdatasciencecenter/my-project.svg?label=release)](https://github.com/swissdatasciencecenter/my-project/releases/latest)
-[![Pipeline Status](https://img.shields.io/github/actions/workflow/status/swissdatasciencecenter/my-project/normal.yaml?label=ci)](https://github.com/swissdatasciencecenter/my-project/actions/workflows/normal.yaml)
+[![Current Release](https://img.shields.io/github/release/swissdatasciencecenter/omnix.svg?label=release)](https://github.com/sdsc-ordes/omnix/releases/latest)
+[![Pipeline Status](https://img.shields.io/github/actions/workflow/status/sdsc-ordes/omnix/normal.yaml?label=ci)](https://github.com/sdsc-ordes/omnix/actions/workflows/normal.yaml)
 [![License label](https://img.shields.io/badge/License-Apache2.0-blue.svg?)](http://www.apache.org/licenses/LICENSE-2.0.html)
-
-**Authors:**
-
-- [Alice Wonderland](mailto:alice.wonderland@sdsc.ethz.ch)
-- [Bob Wonderland](mailto:bob.wonderland@sdsc.ethz.ch)
-
-
-## Installation
-
-Describe the installation instruction here.
 
 ## Usage
 
-Describe the installation instruction here.
+To work with this project, start a nix devshell with `direnv allow` or `just develop`. 
 
 ## Development
 
