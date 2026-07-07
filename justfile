@@ -47,7 +47,7 @@ test *args:
 # Run an executable.
 [group('general')]
 run *args:
-    uv run cli "$@"
+    uv run omnix "$@"
 
 # Run the Jupyter notebook.
 [group('general')]

@@ -16,6 +16,9 @@ dependencies = [
     "python-dotenv>=1.0.0,<2.0.0",
 ]
 
+[project.scripts]
+omnix = "omnix.cli:main"
+
 
 [build-system]
 requires = ["hatchling"]
