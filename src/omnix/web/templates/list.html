@@ -6,7 +6,7 @@
 <form class="filters"
       hx-get="{{ url_for('entity_rows', slug=slug) }}"
       hx-target="#rows"
-      hx-trigger="change, keyup delay:350ms, search"
+      hx-trigger="change, keyup delay:350ms"
       hx-push-url="true">
   {% for w in widgets %}
     <label class="filter">

@@ -15,27 +15,24 @@
 
 ## Usage
 
-To work with this project, start a nix devshell with `direnv allow` or `just develop`.
-
-Copy `.example.env` to `.env` and fill in your SLIMS credentials.
-
-### Browse the data in the web app
-
-The web app serves from a local SQLite snapshot, so browsing needs no VPN. Two steps:
+Copy `.example.env` to `.env` and fill in your SLIMS credentials. Then, whether you
+installed with `pip`/`uv` or you're in the nix devshell (`direnv allow` / `just develop`):
 
 ```sh
-# 1. Build the snapshot (talks to SLIMS -- needs the EPFL VPN). Add --limit N for a quick sample.
-just snapshot            # == env -u LD_LIBRARY_PATH uv run omnix snapshot
-
-# 2. Serve it (reads the snapshot only -- no VPN, no LD_LIBRARY_PATH workaround).
-just serve               # == uv run omnix serve  -> http://127.0.0.1:8000
+omnix snapshot     # pull SLIMS -> build the local .omnix/snapshot.db  (add --limit N to sample)
+omnix serve        # browse it at http://127.0.0.1:8000
 ```
 
-The app lets you browse and filter Tumors, Mice and Assays, drill from a tumor into
-its linked mice and assays, full-text search, export the filtered set as CSV/JSON,
-and view a mutation oncoprint. Re-run `just snapshot` to refresh.
+The web app serves entirely from the local SQLite snapshot, so browsing needs no live
+SLIMS access. Building a snapshot does reach your SLIMS instance over the network —
+connect to its VPN first if it requires one (the EPFL instance does). `omnix dump`
+prints raw records for debugging.
 
-`omnix dump` prints raw SLIMS records for debugging (also needs the VPN).
+You get filterable tables of Tumors, Mice and Assays, drill-down from a tumor into its
+linked mice and assays, and CSV/JSON export of the filtered set.
+Re-run `omnix snapshot` to refresh.
+
+`just snapshot` and `just serve` are convenience wrappers for the same commands.
 
 ## Development
 

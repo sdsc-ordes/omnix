@@ -11,15 +11,6 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
-class Mutation(BaseModel):
-    """One parsed (gene, status) call for a sample -- feeds the oncoprint."""
-
-    sample_kind: str  # "mouse" | "tumor"
-    sample_id: str  # the owning sample's slims_id
-    gene: str
-    status: str  # e.g. "ko", "wt", "het", "positive", "unparsed"
-
-
 class Tumor(BaseModel):
     slims_id: str
     mammoid: str | None = None  # join key (cntn_cf_mammoid), clean on tumors

@@ -14,9 +14,6 @@ from slims.slims import Slims
 CONTENT_TYPES = {
     "Mouse": 19,
     "Tumor": 10,
-    # Assay-related types from the xenograft data model -- uncomment as needed:
-    # "Blood Sample": 21,
-    # "Tissue for RNA": 5,
 }
 
 # Assay sample types (each becomes an Assay row, keyed by its content type name).
@@ -29,24 +26,8 @@ TUMOR_TYPE = 10
 MOUSE_TYPE = 19
 TREATMENT_TYPE = 41  # Treatment content, referenced by cntn_cf_fk_treatment
 
-# Default cap so a query against a large instance stays manageable.
-DEFAULT_LIMIT = 5
-
 # Page size for full fetches -- SLIMS pages via start/end row indices.
 PAGE_SIZE = 1000
-
-
-def fetch_content(
-    slims: Slims, content_type_pk: int, limit: int = DEFAULT_LIMIT
-) -> list:
-    """Fetch up to `limit` Content records of the given content type."""
-    records = slims.fetch(
-        "Content",
-        equals("cntn_fk_contentType", content_type_pk),
-        start=0,
-        end=limit,
-    )
-    return records[:limit]
 
 
 def fetch_all(

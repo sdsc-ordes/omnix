@@ -50,7 +50,7 @@ ENTITY_TO_SLUG = {cfg["entity"]: slug for slug, cfg in ENTITIES.items()}
 PER_PAGE = 50
 
 
-def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:  # noqa: PLR0915 (route registrations)
+def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
     app = Flask(__name__)
     app.config["DB_PATH"] = str(db_path)
 
@@ -132,14 +132,6 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:  # noqa: PLR091
         row = store.get_one(get_conn(), "assay", slims_id) or abort(404)
         return render_template("detail_generic.html", entity="assay", title="Assay", row=row, raw=_raw(row))
 
-    # --- search ------------------------------------------------------------
-    @app.route("/search")
-    def search():
-        q = request.args.get("q", "").strip()
-        hits = store.search(get_conn(), q) if q else []
-        template = "_search_results.html" if request.headers.get("HX-Request") else "search.html"
-        return render_template(template, q=q, hits=hits)
-
     # --- export ------------------------------------------------------------
     @app.route("/export/<slug>.<fmt>")
     def export(slug: str, fmt: str):
@@ -159,15 +151,6 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:  # noqa: PLR091
             writer.writerows(dicts)
         return Response(buf.getvalue(), mimetype="text/csv",
                         headers={"Content-Disposition": f"attachment; filename={slug}.csv"})
-
-    # --- heatmap (implemented in the heatmap milestone) --------------------
-    @app.route("/heatmap")
-    def heatmap():
-        conn = get_conn()
-        matrix = store.mutation_matrix(conn, "mouse")
-        svg = charts.oncoprint_svg(matrix)
-        template = "_heatmap.html" if request.headers.get("HX-Request") else "heatmap.html"
-        return render_template(template, svg=svg, matrix=matrix)
 
     return app
 

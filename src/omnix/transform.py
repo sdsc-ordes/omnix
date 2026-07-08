@@ -7,10 +7,9 @@ than the attribute accessors, which raise on missing columns.
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-from .models import Assay, Mouse, Mutation, Tumor
+from .models import Assay, Mouse, Tumor
 
 # --- low-level column access -------------------------------------------------
 
@@ -169,53 +168,3 @@ def derive_tumor_fields(
         t.n_experiments = len(exp_nbs)
 
         t.treatments = sorted({m.treatment for m in linked_mice if m.treatment})
-
-
-# --- mutation parsing --------------------------------------------------------
-#
-# The free-text ``cntn_cf_mutations`` field follows a loose convention seen
-# across the snapshot: ``<gene>*<zygosity><reporter>``, e.g.
-#   "ER alfa AF2*ko/koGFP0"   -> gene "ER alfa AF2", ko
-#   "ER alfa*+/+GFP*Tg"       -> gene "ER alfa", wt, + transgene
-#   "AF1 WT"                  -> gene "AF1", wt   (no '*', trailing status word)
-# Zygosity maps ko/ko->ko, +/+ (or wt/wt)->wt, any mixed pair->het. A ``Tg``
-# token adds a separate 'transgene' row. Anything that fits no pattern becomes a
-# single 'unparsed' call so it stays visible in the oncoprint, never dropped.
-
-
-def _zygosity(text: str) -> str | None:
-    s = text.lower()
-    if re.search(r"ko/\+|\+/ko|wt/ko|ko/wt|het", s):
-        return "het"
-    if re.search(r"ko/ko|(?:^|[^a-z])ko(?:[^a-z]|$)", s):
-        return "ko"
-    if re.search(r"\+/\+|wt/wt|(?:^|[^a-z])wt(?:[^a-z]|$)", s):
-        return "wt"
-    return None
-
-
-def _mut(mouse: Mouse, gene: str, status: str) -> Mutation:
-    return Mutation(sample_kind="mouse", sample_id=mouse.slims_id, gene=gene, status=status)
-
-
-def parse_mouse_mutations(mouse: Mouse) -> list[Mutation]:
-    """Parse the free-text mutation field into (gene, status) calls (heuristic)."""
-    raw = (mouse.mutations_raw or "").strip()
-    if not raw:
-        return []
-    out: list[Mutation] = []
-    if "*" in raw:
-        gene, remainder = raw.split("*", 1)
-        gene = gene.strip()
-        status = _zygosity(remainder)
-        if gene and status:
-            out.append(_mut(mouse, gene, status))
-        if re.search(r"\btg\b", raw.lower()):
-            out.append(_mut(mouse, "transgene", "tg"))
-    else:
-        m = re.match(r"^(.*?)[\s_-]*(wt|ko|het)$", raw, re.IGNORECASE)
-        if m and m.group(1).strip():
-            out.append(_mut(mouse, m.group(1).strip(), m.group(2).lower()))
-    if not out:
-        out.append(_mut(mouse, raw, "unparsed"))
-    return out

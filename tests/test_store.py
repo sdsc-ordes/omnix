@@ -1,4 +1,4 @@
-"""Tests for the SQLite store: write, filter, search, drill-down, matrix."""
+"""Tests for the SQLite store: write, filter, drill-down, pagination."""
 
 from omnix import store
 
@@ -6,7 +6,7 @@ from omnix import store
 def test_meta_and_counts(seeded_db):
     conn = store.connect(seeded_db, read_only=True)
     meta = store.get_meta(conn)
-    assert meta["counts"] == {"tumor": 1, "mouse": 1, "assay": 2, "mutation": 1}
+    assert meta["counts"] == {"tumor": 1, "mouse": 1, "assay": 2}
     assert meta["source_url"] == "http://test"
 
 
@@ -49,14 +49,3 @@ def test_linked_to_tumor_drilldown(seeded_db):
     assert {a["slims_id"] for a in linked["assays"]} == {"BLOOD_00000900", "BRI_CV_00000900"}
 
 
-def test_search(seeded_db):
-    conn = store.connect(seeded_db, read_only=True)
-    hits = store.search(conn, "BRCA1")
-    assert any(h["entity"] == "tumor" for h in hits)
-
-
-def test_mutation_matrix(seeded_db):
-    conn = store.connect(seeded_db, read_only=True)
-    matrix = store.mutation_matrix(conn, "mouse")
-    assert "00009001" in matrix["samples"]
-    assert matrix["genes"]

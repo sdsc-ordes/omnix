@@ -33,6 +33,8 @@ __pycache*
 
 # Environment files
 .env
+# Per-developer direnv overrides (personal, not shared).
+.envrc.local
 
 # Local SLIMS snapshot database (built by `omnix snapshot`).
 .omnix

@@ -6,14 +6,8 @@ Subcommands:
     omnix serve        Launch the web app over an existing snapshot.
     omnix dump         Print raw Content records (debugging).
 
-`snapshot` and `dump` talk to SLIMS, so run them on the EPFL VPN. If a fetch
-dies with an ssl error, unset LD_LIBRARY_PATH first (the impure devenv shell
-injects an old glibc that shadows the one `_ssl.so` needs):
-
-    env -u LD_LIBRARY_PATH uv run omnix snapshot
-
-`serve` only reads the snapshot file -- it needs neither the VPN nor the
-LD_LIBRARY_PATH workaround.
+`snapshot` and `dump` reach your SLIMS instance over the network (connect to its
+VPN first if it requires one). `serve` only reads the local snapshot file.
 
 SLIMS columns have cryptic names (e.g. ``cntn_fk_status``). Each column also
 carries a human-readable ``title`` ("Status"), a resolved ``displayValue``
@@ -24,11 +18,9 @@ import argparse
 
 from . import store
 
-# NOTE: `requests`, `slims`, and the client/extract/snapshot modules are imported
-# lazily inside the SLIMS-touching commands only. Importing them pulls in the
-# `slims` stack -> `requests` -> the `ssl` module, which fails under the devenv
-# shell's injected LD_LIBRARY_PATH. `serve` reads only the SQLite snapshot, so it
-# must not trigger those imports.
+# `serve` reads only the local snapshot, so the SLIMS/HTTP stack (`requests`,
+# `slims`, and the client/extract/snapshot modules) is imported lazily inside the
+# commands that need it, rather than at module load.
 
 
 def describe_record(record) -> None:
@@ -55,14 +47,14 @@ def cmd_dump(_args) -> None:
     import requests  # noqa: PLC0415 (lazy: pulls in the ssl-dependent slims stack)
 
     from .client import connect, load_config  # noqa: PLC0415
-    from .extract import CONTENT_TYPES, fetch_content  # noqa: PLC0415
+    from .extract import CONTENT_TYPES, fetch_all  # noqa: PLC0415
 
     config = load_config()
     slims = connect(config)
     try:
         for label, pk in CONTENT_TYPES.items():
             print(f"--- {label} (cntn_fk_contentType={pk}) ---\n")
-            records = fetch_content(slims, pk)
+            records = fetch_all(slims, pk, limit=5)
             if not records:
                 print("  (no records)\n")
                 continue

@@ -107,11 +107,10 @@ def seeded_db(tmp_path, tumor_record, mouse_record, treatment_record, blood_reco
     mice = [transform.to_mouse(mouse_record, lookup)]
     assays = [transform.to_assay(blood_record), transform.to_assay(tissue_record)]
     transform.derive_tumor_fields(tumors, mice, assays)
-    mutations = [mut for m in mice for mut in transform.parse_mouse_mutations(m)]
 
     db_path = tmp_path / "snap.db"
     conn = store.connect(db_path, read_only=False)
-    store.write_snapshot(conn, tumors, mice, assays, mutations, "http://test", {})
+    store.write_snapshot(conn, tumors, mice, assays, "http://test", {})
     conn.close()
     return db_path
 

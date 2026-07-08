@@ -34,10 +34,6 @@ def test_mouse_detail(client):
     assert client.get("/mouse/00009001").status_code == 200
 
 
-def test_search(client):
-    r = client.get("/search?q=BRCA1")
-    assert r.status_code == 200
-    assert b"TUMOR_00000900" in r.data
 
 
 def test_export_csv(client):
@@ -53,9 +49,3 @@ def test_export_json_respects_filter(client):
     assert len(data) == 1
     assert data[0]["slims_id"] == "TUMOR_00000900"
     assert "raw_json" not in data[0]
-
-
-def test_heatmap_renders_svg(client):
-    r = client.get("/heatmap")
-    assert r.status_code == 200
-    assert b"<svg" in r.data

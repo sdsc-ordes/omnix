@@ -14,12 +14,7 @@
       <a href="{{ url_for('entity_list', slug='tumors') }}">Tumors</a>
       <a href="{{ url_for('entity_list', slug='mice') }}">Mice</a>
       <a href="{{ url_for('entity_list', slug='assays') }}">Assays</a>
-      <a href="{{ url_for('heatmap') }}">Heatmap</a>
     </nav>
-    <form action="{{ url_for('search') }}" method="get" class="search" role="search">
-      <input type="search" name="q" placeholder="Search all…" value="{{ q or '' }}"
-             aria-label="Search">
-    </form>
   </header>
   <main>{% block content %}{% endblock %}</main>
 </body>

@@ -53,29 +53,3 @@ def test_derive_tumor_fields_no_match_is_empty():
     assert tumors[0].treatments == []
 
 
-def test_parse_mutations_gene_and_zygosity():
-    muts = transform.parse_mouse_mutations(Mouse(slims_id="M1", mutations_raw="ER alfa AF2*ko/koGFP0"))
-    calls = {(x.gene, x.status) for x in muts}
-    assert ("ER alfa AF2", "ko") in calls
-
-
-def test_parse_mutations_trailing_status_word():
-    muts = transform.parse_mouse_mutations(Mouse(slims_id="M1", mutations_raw="AF1 WT"))
-    assert ("AF1", "wt") in {(x.gene, x.status) for x in muts}
-
-
-def test_parse_mutations_transgene():
-    muts = transform.parse_mouse_mutations(Mouse(slims_id="M1", mutations_raw="ER alfa*+/+GFP*Tg"))
-    calls = {(x.gene, x.status) for x in muts}
-    assert ("ER alfa", "wt") in calls
-    assert ("transgene", "tg") in calls
-
-
-def test_parse_mutations_unparsed_bucket():
-    muts = transform.parse_mouse_mutations(Mouse(slims_id="M1", mutations_raw="weird genotype note"))
-    assert muts  # nothing silently dropped
-    assert any(x.status == "unparsed" for x in muts)
-
-
-def test_parse_mutations_empty():
-    assert transform.parse_mouse_mutations(Mouse(slims_id="M1", mutations_raw=None)) == []

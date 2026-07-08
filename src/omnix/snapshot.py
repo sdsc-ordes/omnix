@@ -1,8 +1,7 @@
 """ETL: extract from SLIMS, transform to models, write the SQLite snapshot.
 
-This is the only part of the app that talks to SLIMS, so it must run on the
-EPFL VPN with ``env -u LD_LIBRARY_PATH`` (see cli docstring). ``omnix serve``
-only reads the resulting file.
+This is the only part of the app that talks to SLIMS (connect to its VPN first
+if it requires one). ``omnix serve`` only reads the resulting file.
 """
 
 from __future__ import annotations
@@ -34,8 +33,6 @@ def run(db_path: Path | str = store.DEFAULT_DB, limit: int | None = None) -> dic
 
     transform.derive_tumor_fields(tumors, mice, assays)
 
-    mutations = [mut for m in mice for mut in transform.parse_mouse_mutations(m)]
-
     raw_by_id: dict[str, dict] = {}
     for rec in (*tumor_recs, *mouse_recs, *assay_recs):
         dumped = transform.raw_dump(rec)
@@ -45,13 +42,11 @@ def run(db_path: Path | str = store.DEFAULT_DB, limit: int | None = None) -> dic
     conn = store.connect(db_path, read_only=False)
     try:
         _reset(conn)
-        store.write_snapshot(
-            conn, tumors, mice, assays, mutations, config["SLIMS_URL"], raw_by_id
-        )
+        store.write_snapshot(conn, tumors, mice, assays, config["SLIMS_URL"], raw_by_id)
     finally:
         conn.close()
 
-    return {"tumor": len(tumors), "mouse": len(mice), "assay": len(assays), "mutation": len(mutations)}
+    return {"tumor": len(tumors), "mouse": len(mice), "assay": len(assays)}
 
 
 def _reset(conn) -> None:
