@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}omnix — mutation heatmap{% endblock %}
+{% block content %}
+<h1>Mutation oncoprint <span class="sub">mice</span></h1>
+<p class="muted">
+  Rows are genes parsed from the free-text <code>Mutations</code> field; columns are
+  mice. Free-text parsing is heuristic — anything unrecognized shows as
+  <em>unparsed</em> rather than being dropped.
+</p>
+
+<div class="legend">
+  <span><i class="sw s-ko"></i> knockout</span>
+  <span><i class="sw s-het"></i> heterozygous</span>
+  <span><i class="sw s-wt"></i> wild-type</span>
+  <span><i class="sw s-tg"></i> transgene</span>
+  <span><i class="sw s-unparsed"></i> unparsed</span>
+  <span><i class="sw s-absent"></i> not called</span>
+</div>
+
+<div id="heatmap" class="op-scroll">
+  {% include "_heatmap.html" %}
+</div>
+{% endblock %}

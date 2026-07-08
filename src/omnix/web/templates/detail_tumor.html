@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}omnix — {{ row['slims_id'] }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('entity_list', slug='tumors') }}">← Tumors</a></p>
+<h1>{{ row['slims_id'] }} <span class="sub">{{ row['mammoid'] or '(no sample id)' }}</span></h1>
+
+<section class="panel">
+  <h2>Fields</h2>
+  <dl class="fields">
+    {% for k in ['mammoid','name','tumor_type','subtype','grade','er','pr','her2','ki67',
+                 'rna_sequenced','dna_sequenced','n_experiments','treatments'] %}
+      <dt>{{ k }}</dt><dd>{{ fmt_cell(k, row[k]) }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+
+<section class="panel">
+  <h2>Linked mice <span class="sub">{{ linked.mice|length }}</span></h2>
+  {% if not row['mammoid'] %}
+    <p class="muted">No sample id on this tumor — cannot link mice/assays.</p>
+  {% elif linked.mice %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>Exp#</th><th>Generation</th><th>Treatment</th><th>Mutations</th></tr></thead>
+      <tbody>
+        {% for m in linked.mice %}
+          <tr>
+            <td><a href="{{ url_for('mouse_detail', slims_id=m['slims_id']) }}">{{ m['slims_id'] }}</a></td>
+            <td>{{ m['mouse_exp_nb'] or '' }}</td>
+            <td>{{ m['generation'] or '' }}</td>
+            <td>{{ m['treatment'] or '' }}</td>
+            <td>{{ m['mutations_raw'] or '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <p class="muted">No mice matched on <code>{{ row['mammoid'] }}</code> (mouse sample ids are free text — the match may miss).</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Linked assays <span class="sub">{{ linked.assays|length }}</span></h2>
+  {% if linked.assays %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>Type</th><th>Exp#</th><th>Organ</th></tr></thead>
+      <tbody>
+        {% for a in linked.assays %}
+          <tr>
+            <td><a href="{{ url_for('assay_detail', slims_id=a['slims_id']) }}">{{ a['slims_id'] }}</a></td>
+            <td>{{ a['assay_type'] or '' }}</td>
+            <td>{{ a['mouse_exp_nb'] or '' }}</td>
+            <td>{{ a['organ'] or '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <p class="muted">No linked assays.</p>
+  {% endif %}
+</section>
+
+{% include "_raw.html" %}
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}omnix — search{% endblock %}
+{% block content %}
+<h1>Search</h1>
+<form action="{{ url_for('search') }}" method="get" class="search-page"
+      hx-get="{{ url_for('search') }}" hx-target="#results" hx-trigger="keyup delay:350ms, search">
+  <input type="search" name="q" value="{{ q }}" placeholder="ids, labels, mutations…" autofocus>
+</form>
+<div id="results">
+  {% include "_search_results.html" %}
+</div>
+{% endblock %}

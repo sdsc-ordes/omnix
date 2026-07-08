@@ -33,3 +33,6 @@ __pycache*
 
 # Environment files
 .env
+
+# Local SLIMS snapshot database (built by `omnix snapshot`).
+.omnix

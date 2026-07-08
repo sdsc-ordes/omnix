@@ -15,7 +15,27 @@
 
 ## Usage
 
-To work with this project, start a nix devshell with `direnv allow` or `just develop`. 
+To work with this project, start a nix devshell with `direnv allow` or `just develop`.
+
+Copy `.example.env` to `.env` and fill in your SLIMS credentials.
+
+### Browse the data in the web app
+
+The web app serves from a local SQLite snapshot, so browsing needs no VPN. Two steps:
+
+```sh
+# 1. Build the snapshot (talks to SLIMS -- needs the EPFL VPN). Add --limit N for a quick sample.
+just snapshot            # == env -u LD_LIBRARY_PATH uv run omnix snapshot
+
+# 2. Serve it (reads the snapshot only -- no VPN, no LD_LIBRARY_PATH workaround).
+just serve               # == uv run omnix serve  -> http://127.0.0.1:8000
+```
+
+The app lets you browse and filter Tumors, Mice and Assays, drill from a tumor into
+its linked mice and assays, full-text search, export the filtered set as CSV/JSON,
+and view a mutation oncoprint. Re-run `just snapshot` to refresh.
+
+`omnix dump` prints raw SLIMS records for debugging (also needs the VPN).
 
 ## Development
 

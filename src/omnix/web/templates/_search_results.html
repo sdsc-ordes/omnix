@@ -1,0 +1,21 @@
+{% if q %}
+  <p class="count">{{ hits|length }} hit{{ '' if hits|length == 1 else 's' }} for “{{ q }}”</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Kind</th><th>ID</th><th>Match</th></tr></thead>
+      <tbody>
+        {% for h in hits %}
+          <tr>
+            <td>{{ h['entity'] }}</td>
+            <td><a href="{{ url_for(h['entity'] ~ '_detail', slims_id=h['slims_id']) }}">{{ h['slims_id'] }}</a></td>
+            <td class="snippet">{{ h['body'][:120] }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">No matches.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="muted">Type to search across tumors, mice and assays.</p>
+{% endif %}

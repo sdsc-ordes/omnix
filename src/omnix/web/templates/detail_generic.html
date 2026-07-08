@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}omnix — {{ row['slims_id'] }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('entity_list', slug=entity_to_slug[entity]) }}">← {{ title }}s</a></p>
+<h1>{{ row['slims_id'] }} <span class="sub">{{ title }}</span></h1>
+
+<section class="panel">
+  <h2>Fields</h2>
+  <dl class="fields">
+    {% for k in row.keys() if k != 'raw_json' %}
+      <dt>{{ k }}</dt><dd>{{ fmt_cell(k, row[k]) }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+
+{% include "_raw.html" %}
+{% endblock %}

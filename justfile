@@ -53,3 +53,13 @@ run *args:
 [group('general')]
 notebook *args:
     uv run python -m notebook "$@"
+
+# Build the local SQLite snapshot from SLIMS (needs the EPFL VPN).
+[group('general')]
+snapshot *args:
+    env -u LD_LIBRARY_PATH uv run omnix snapshot "$@"
+
+# Serve the web app over the local snapshot (no VPN needed).
+[group('general')]
+serve *args:
+    uv run omnix serve "$@"

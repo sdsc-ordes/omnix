@@ -14,6 +14,7 @@ dependencies = [
     "pytest>=8.4.2",
     "slims-python-api==6.9.0",
     "python-dotenv>=1.0.0,<2.0.0",
+    "flask>=3.0,<4.0",
 ]
 
 [project.scripts]
@@ -54,5 +55,5 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"tests/**" = ["INP001"]
+"tests/**" = ["INP001", "PLR2004", "PLR0913"]
 "[!t][!e][!s][!t][!s]*/**" = ["PT"]

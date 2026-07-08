@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}omnix — {{ cfg.title }}{% endblock %}
+{% block content %}
+<h1>{{ cfg.title }}</h1>
+
+<form class="filters"
+      hx-get="{{ url_for('entity_rows', slug=slug) }}"
+      hx-target="#rows"
+      hx-trigger="change, keyup delay:350ms, search"
+      hx-push-url="true">
+  {% for w in widgets %}
+    <label class="filter">
+      <span>{{ w.col }}</span>
+      {% if w.options %}
+        <select name="{{ w.col }}">
+          <option value="">any</option>
+          {% for opt in w.options %}
+            <option value="{{ opt }}" {% if opt == w.value %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      {% else %}
+        <input type="text" name="{{ w.col }}" value="{{ w.value }}" placeholder="contains…">
+      {% endif %}
+    </label>
+  {% endfor %}
+  <a class="clear" href="{{ url_for('entity_list', slug=slug) }}">clear</a>
+</form>
+
+{% include "_rows.html" %}
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}omnix — dashboard{% endblock %}
+{% block content %}
+<h1>Xenograft snapshot</h1>
+
+{% if meta %}
+  <p class="meta">
+    Snapshot from <code>{{ meta.source_url }}</code>,
+    taken {{ meta.created_at }}.
+  </p>
+  <section class="cards">
+    {% for kind, n in meta.counts.items() %}
+      <div class="card"><div class="num">{{ n }}</div><div class="lbl">{{ kind }}s</div></div>
+    {% endfor %}
+  </section>
+
+  {% set rna, total = stats.rna_sequenced %}
+  <section class="panel">
+    <h2>Summary</h2>
+    <div class="stat-line">
+      RNA-sequenced tumors: <strong>{{ rna }}</strong> of {{ total }}
+      {% if total %}({{ (100 * rna / total) | round(1) }}%){% endif %}
+    </div>
+
+    {% macro breakdown(title, rows) %}
+      <div class="breakdown">
+        <h3>{{ title }}</h3>
+        {% set top = rows[0][1] if rows else 1 %}
+        {% for label, n in rows %}
+          <div class="bar-row">
+            <span class="bar-label" title="{{ label }}">{{ label }}</span>
+            <span class="bar"><span class="bar-fill" style="width: {{ (100 * n / top) | round(1) }}%"></span></span>
+            <span class="bar-num">{{ n }}</span>
+          </div>
+        {% else %}
+          <p class="muted">No data.</p>
+        {% endfor %}
+      </div>
+    {% endmacro %}
+
+    <div class="breakdowns">
+      {{ breakdown("Tumors by type", stats.tumor_types) }}
+      {{ breakdown("Mice by generation", stats.mouse_generations) }}
+      {{ breakdown("Assays by type", stats.assay_types) }}
+    </div>
+  </section>
+{% else %}
+  <p class="warn">No snapshot found. Run <code>env -u LD_LIBRARY_PATH uv run omnix snapshot</code> first.</p>
+{% endif %}
+{% endblock %}

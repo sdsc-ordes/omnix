@@ -1,24 +1,34 @@
-"""Command-line entry point: fetch xenograft Content and print it readably.
+"""Command-line entry point for omnix.
 
-Run it from inside the dev shell after copying `.example.env` to `.env`:
+Subcommands:
 
-    uv run omnix
+    omnix snapshot     Pull SLIMS -> reshape -> write the local SQLite snapshot.
+    omnix serve        Launch the web app over an existing snapshot.
+    omnix dump         Print raw Content records (debugging).
 
-If a fetch dies with an ssl error, unset LD_LIBRARY_PATH first (the impure
-devenv shell injects an old glibc that shadows the one `_ssl.so` needs), and
-make sure you are on the EPFL VPN:
+`snapshot` and `dump` talk to SLIMS, so run them on the EPFL VPN. If a fetch
+dies with an ssl error, unset LD_LIBRARY_PATH first (the impure devenv shell
+injects an old glibc that shadows the one `_ssl.so` needs):
 
-    env -u LD_LIBRARY_PATH uv run omnix
+    env -u LD_LIBRARY_PATH uv run omnix snapshot
+
+`serve` only reads the snapshot file -- it needs neither the VPN nor the
+LD_LIBRARY_PATH workaround.
 
 SLIMS columns have cryptic names (e.g. ``cntn_fk_status``). Each column also
 carries a human-readable ``title`` ("Status"), a resolved ``displayValue``
-("Available") and the raw ``value`` (10). This prints all three.
+("Available") and the raw ``value`` (10). `dump` prints all three.
 """
 
-import requests
+import argparse
 
-from omnix.client import connect, load_config
-from omnix.extract import CONTENT_TYPES, fetch_content
+from . import store
+
+# NOTE: `requests`, `slims`, and the client/extract/snapshot modules are imported
+# lazily inside the SLIMS-touching commands only. Importing them pulls in the
+# `slims` stack -> `requests` -> the `ssl` module, which fails under the devenv
+# shell's injected LD_LIBRARY_PATH. `serve` reads only the SQLite snapshot, so it
+# must not trigger those imports.
 
 
 def describe_record(record) -> None:
@@ -41,10 +51,14 @@ def describe_record(record) -> None:
     print()
 
 
-def main() -> None:
+def cmd_dump(_args) -> None:
+    import requests  # noqa: PLC0415 (lazy: pulls in the ssl-dependent slims stack)
+
+    from .client import connect, load_config  # noqa: PLC0415
+    from .extract import CONTENT_TYPES, fetch_content  # noqa: PLC0415
+
     config = load_config()
     slims = connect(config)
-
     try:
         for label, pk in CONTENT_TYPES.items():
             print(f"--- {label} (cntn_fk_contentType={pk}) ---\n")
@@ -59,6 +73,63 @@ def main() -> None:
             f"Could not reach SLIMS at {config['SLIMS_URL']!r}: {error}\n"
             "Check the VPN, SLIMS_URL, and SLIMS_USER / SLIMS_SECRET."
         ) from error
+
+
+def cmd_snapshot(args) -> None:
+    import requests  # noqa: PLC0415 (lazy: pulls in the ssl-dependent slims stack)
+
+    from . import snapshot as snapshot_mod  # noqa: PLC0415
+    from .client import load_config  # noqa: PLC0415
+
+    config = load_config()
+    try:
+        counts = snapshot_mod.run(args.db, limit=args.limit)
+    except requests.exceptions.RequestException as error:
+        raise SystemExit(
+            f"Could not reach SLIMS at {config['SLIMS_URL']!r}: {error}\n"
+            "Check the VPN, SLIMS_URL, and SLIMS_USER / SLIMS_SECRET."
+        ) from error
+    summary = ", ".join(f"{n} {k}" for k, n in counts.items())
+    print(f"Wrote snapshot to {args.db}: {summary}")
+
+
+def cmd_serve(args) -> None:
+    from .web.app import create_app  # noqa: PLC0415 (lazy: avoid importing Flask unless serving)
+
+    app = create_app(args.db)
+    print(f"Serving omnix on http://{args.host}:{args.port}  (snapshot: {args.db})")
+    app.run(host=args.host, port=args.port, debug=args.debug)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="omnix", description="SLIMS xenograft browser.")
+    sub = parser.add_subparsers(dest="command")
+
+    p_snap = sub.add_parser("snapshot", help="Pull SLIMS into the local SQLite snapshot.")
+    p_snap.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
+    p_snap.add_argument("--limit", type=int, default=None, help="Cap rows per content type (dev).")
+    p_snap.set_defaults(func=cmd_snapshot)
+
+    p_serve = sub.add_parser("serve", help="Run the web app over an existing snapshot.")
+    p_serve.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8000)
+    p_serve.add_argument("--debug", action="store_true")
+    p_serve.set_defaults(func=cmd_serve)
+
+    p_dump = sub.add_parser("dump", help="Print raw Content records (debugging).")
+    p_dump.set_defaults(func=cmd_dump)
+
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    if not getattr(args, "func", None):
+        parser.print_help()
+        return
+    args.func(args)
 
 
 if __name__ == "__main__":
