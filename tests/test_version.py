@@ -1,7 +1,6 @@
-import pytest
 import re
 
-from mymodule import __version__
+from omnix import __version__
 
 
 def test_version_format():

@@ -1,0 +1,98 @@
+:root {
+  --surface-1: #fcfcfb;
+  --page: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.10);
+  --accent: #2a78d6;
+  --accent-fill: #cde2fb;
+  --danger: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.10);
+    --accent: #3987e5;
+    --accent-fill: #184f95;
+    --danger: #f87171;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text-primary);
+  background: var(--page);
+  font-size: 14px;
+  line-height: 1.5;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-size: 0.9em; background: var(--surface-1); padding: 0 3px; border-radius: 3px; }
+h1 { font-size: 1.5rem; margin: 1rem 0 0.5rem; }
+h2 { font-size: 1.05rem; margin: 0 0 0.6rem; }
+h3 { font-size: 0.9rem; margin: 0 0 0.4rem; color: var(--text-secondary); }
+.sub { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
+.muted { color: var(--muted); }
+.warn { color: var(--danger); }
+main { max-width: 1100px; margin: 0 auto; padding: 0 1rem 3rem; }
+
+/* top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.6rem 1rem; background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.topbar nav { display: flex; gap: 1rem; align-items: baseline; }
+.topbar .brand { font-weight: 700; color: var(--text-primary); }
+
+/* cards + panels */
+.cards { display: flex; gap: 0.8rem; flex-wrap: wrap; margin: 1rem 0; }
+.card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 0.8rem 1.2rem; min-width: 110px; }
+.card .num { font-size: 1.8rem; font-weight: 700; }
+.card .lbl { color: var(--muted); text-transform: capitalize; }
+.panel { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 1rem; margin: 1rem 0; }
+.meta { color: var(--text-secondary); }
+.stat-line { margin-bottom: 0.8rem; }
+
+/* breakdown bars (sequential accent) */
+.breakdowns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.2rem; }
+.bar-row { display: grid; grid-template-columns: 90px 1fr 2.5rem; align-items: center; gap: 0.5rem; margin: 2px 0; }
+.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.bar { background: var(--grid); border-radius: 4px; height: 12px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.bar-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* filters */
+.filters { display: flex; flex-wrap: wrap; gap: 0.7rem; align-items: flex-end; margin: 0.8rem 0; }
+.filter { display: flex; flex-direction: column; font-size: 0.8rem; color: var(--muted); }
+.filter select, .filter input { margin-top: 2px; padding: 0.3rem 0.4rem; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--surface-1); color: var(--text-primary); }
+.filters .clear { align-self: center; }
+
+/* rows / tables */
+.rowsbar { display: flex; justify-content: space-between; align-items: center; margin: 0.5rem 0; color: var(--muted); }
+.exports a { margin-left: 0.5rem; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; background: var(--surface-1); }
+th, td { text-align: left; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { color: var(--text-secondary); font-weight: 600; position: sticky; top: 0; background: var(--surface-1); }
+tbody tr:hover { background: var(--accent-fill); }
+.pager { display: flex; gap: 1rem; align-items: center; justify-content: center; margin: 0.8rem 0; }
+
+/* detail */
+.crumb { margin: 0.8rem 0 0; }
+.fields { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0; }
+.fields dt { color: var(--muted); }
+.fields dd { margin: 0; }
+.fields.raw { max-height: 320px; overflow: auto; }
+details summary { cursor: pointer; color: var(--text-secondary); }

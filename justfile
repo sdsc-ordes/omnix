@@ -47,9 +47,19 @@ test *args:
 # Run an executable.
 [group('general')]
 run *args:
-    uv run cli "$@"
+    uv run omnix "$@"
 
 # Run the Jupyter notebook.
 [group('general')]
 notebook *args:
     uv run python -m notebook "$@"
+
+# Build the local SQLite snapshot from SLIMS (connect to its VPN first if needed).
+[group('general')]
+snapshot *args:
+    uv run omnix snapshot "$@"
+
+# Serve the web app over the local snapshot (no VPN needed).
+[group('general')]
+serve *args:
+    uv run omnix serve "$@"

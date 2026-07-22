@@ -1,0 +1,10 @@
+<section class="panel">
+  <details>
+    <summary>All SLIMS columns ({{ raw|length }})</summary>
+    <dl class="fields raw">
+      {% for k, v in raw.items() %}
+        <dt>{{ k }}</dt><dd>{{ v }}</dd>
+      {% endfor %}
+    </dl>
+  </details>
+</section>

@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>omnix — a guided tour</title>
+<style>
+  :root{
+    --bg:#f7f7f5; --surface:#ffffff; --surface-2:#f0efec; --ink:#141413;
+    --ink-2:#57564f; --muted:#8a8880; --line:#e2e1da; --accent:#0f766e;
+    --accent-soft:#d7efec; --ok:#15803d; --bad:#b91c1c; --warn:#b45309;
+    --code-bg:#1d1d1b; --code-ink:#e6e6e0; --code-mut:#8f8f86;
+    --radius:12px; --maxw:900px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0e0e0d; --surface:#1a1a18; --surface-2:#232320; --ink:#f4f4ef;
+      --ink-2:#c3c2b8; --muted:#8a8880; --line:#2e2e2a; --accent:#4fd1c5;
+      --accent-soft:#123734; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24;
+      --code-bg:#000; --code-ink:#e6e6e0; --code-mut:#7d7d75;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;}
+  a{color:var(--accent)}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px}
+
+  /* progress bar */
+  #topbar{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--surface) 92%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  #topbar .wrap{display:flex;align-items:center;gap:14px;height:52px}
+  #topbar b{font-weight:700}
+  .prog{flex:1;height:7px;background:var(--surface-2);border-radius:20px;overflow:hidden}
+  .prog>i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+  #progpct{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:13px;min-width:38px;text-align:right}
+
+  header.hero{padding:56px 0 30px;border-bottom:1px solid var(--line)}
+  header.hero h1{font-size:40px;margin:0 0 6px;letter-spacing:-.02em}
+  header.hero p{color:var(--ink-2);font-size:18px;margin:.3em 0}
+  .kmeta{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .chip{font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);
+    padding:4px 10px;border-radius:20px;color:var(--ink-2)}
+
+  nav.toc{margin:26px 0 8px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  nav.toc a{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14.5px}
+  nav.toc a:hover{border-color:var(--accent)}
+  nav.toc a .n{color:var(--muted);font-variant-numeric:tabular-nums}
+  nav.toc a .t{color:var(--muted);margin-left:auto;font-size:12px}
+
+  section{padding:40px 0;border-bottom:1px solid var(--line)}
+  section>h2{font-size:27px;margin:0 0 4px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:12px}
+  section>h2 .sn{color:var(--accent);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .lede{color:var(--ink-2);font-size:17px;margin:.2em 0 1.4em}
+  h3{font-size:19px;margin:1.8em 0 .4em}
+  h4{font-size:15px;margin:1.4em 0 .3em;color:var(--ink)}
+  p,li{color:var(--ink)}
+  .muted{color:var(--muted)}
+  strong{font-weight:650}
+  code:not(pre code){background:var(--surface-2);border:1px solid var(--line);border-radius:5px;
+    padding:.06em .38em;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.88em}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:16px 0}
+  .callout{border-left:3px solid var(--accent);background:var(--accent-soft);
+    border-radius:0 10px 10px 0;padding:12px 16px;margin:16px 0;font-size:15px}
+  .callout.warn{border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+  .callout b{display:block;margin-bottom:2px}
+
+  /* code */
+  pre{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:14px 16px;overflow-x:auto;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px;line-height:1.55;margin:12px 0}
+  pre .c{color:var(--code-mut)}
+  .filebar{background:var(--surface-2);border:1px solid var(--line);border-bottom:none;
+    border-radius:10px 10px 0 0;padding:6px 14px;font:12px ui-monospace,monospace;color:var(--ink-2);margin-top:12px}
+  .filebar + pre{border-radius:0 0 10px 10px;margin-top:0}
+
+  /* diagram */
+  .lanes{display:grid;gap:14px;margin:20px 0}
+  .lane{border:1px dashed var(--line);border-radius:14px;padding:14px 14px 6px;position:relative}
+  .lane .ltag{position:absolute;top:-11px;left:14px;background:var(--bg);padding:0 8px;font-size:12px;font-weight:650}
+  .lane.vpn .ltag{color:var(--warn)} .lane.local .ltag{color:var(--ok)}
+  .flow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+  .node{flex:1;min-width:120px;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;cursor:pointer;transition:.15s;font-size:13.5px}
+  .node:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .node.active{border-color:var(--accent);background:var(--accent-soft)}
+  .node b{display:block;font-size:14px}
+  .node .f{color:var(--muted);font:11.5px ui-monospace,monospace}
+  .node.data{background:var(--surface-2);border-style:dashed}
+  .arrow{align-self:center;color:var(--muted);font-size:20px}
+  #stagedetail{margin-top:12px}
+  #stagedetail:empty{display:none}
+
+  /* decoder */
+  .decoder input{width:100%;padding:11px 14px;font:15px ui-monospace,monospace;
+    background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:9px}
+  .decoder input:focus{outline:2px solid var(--accent);border-color:transparent}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+  .presets button,.qbtn{cursor:pointer;font:13px ui-monospace,monospace;background:var(--surface-2);
+    border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px 9px}
+  .presets button:hover{border-color:var(--accent)}
+  .decoded{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px}
+  .decoded .box{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .decoded .box .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .decoded .box .v{font-size:15px;font-weight:600;margin-top:2px}
+  .decoded .box .v.mono{font-family:ui-monospace,monospace;font-size:13px;font-weight:500}
+
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--ink-2);font-weight:650;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
+  td code{white-space:nowrap}
+
+  details{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:0 16px}
+  details[open]{padding-bottom:8px}
+  summary{cursor:pointer;padding:12px 0;font-weight:600;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--accent)}
+  details[open] summary::before{content:"▾ "}
+
+  /* self-check inline */
+  .check{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:0 10px 10px 0;padding:14px 16px;margin:18px 0}
+  .check .q{font-weight:600;margin-bottom:4px}
+  .check .reveal{margin-top:8px;color:var(--ink-2);font-size:15px;display:none}
+  .check.open .reveal{display:block}
+  .check button{margin-top:4px}
+
+  /* quiz */
+  .quiz .q{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .quiz .q .qtext{font-weight:600;margin-bottom:10px}
+  .quiz .opt{display:block;width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:9px;padding:10px 13px;margin:7px 0;cursor:pointer;font-size:14.5px;transition:.12s}
+  .quiz .opt:hover{border-color:var(--accent)}
+  .quiz .opt.correct{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,transparent)}
+  .quiz .opt.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+  .quiz .opt:disabled{cursor:default}
+  .quiz .explain{margin-top:8px;font-size:14px;color:var(--ink-2);display:none}
+  .quiz .explain.show{display:block}
+  #score{position:sticky;bottom:16px;margin:20px auto 0;max-width:var(--maxw);
+    background:var(--accent);color:#fff;border-radius:10px;padding:10px 16px;font-weight:600;
+    text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+
+  .btn{cursor:pointer;background:var(--accent);color:#fff;border:none;border-radius:8px;
+    padding:8px 14px;font-size:14px;font-weight:600}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  .done-toggle{display:flex;align-items:center;gap:8px;margin-top:22px;font-size:14px;color:var(--ink-2)}
+  .done-toggle input{width:17px;height:17px;accent-color:var(--accent)}
+  footer{padding:40px 0 80px;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+
+<div id="topbar"><div class="wrap">
+  <b>omnix</b><span class="muted" style="font-size:13px">guided tour</span>
+  <div class="prog"><i id="progfill"></i></div>
+  <span id="progpct">0%</span>
+</div></div>
+
+<div class="wrap">
+
+<header class="hero">
+  <h1>omnix, end to end</h1>
+  <p>A one-hour tour of how a pile of messy lab records becomes a browsable web app — and why every piece is shaped the way it is.</p>
+  <p class="muted" style="font-size:15px">Work top to bottom. Play with the interactive bits, answer the inline checks out loud, and finish with the quiz. By the end you should be able to explain any part of this to a colleague.</p>
+  <div class="kmeta">
+    <span class="chip">🐍 Python 3.13</span>
+    <span class="chip">🧪 SLIMS LIMS</span>
+    <span class="chip">🌶️ Flask + HTMX</span>
+    <span class="chip">🗄️ SQLite</span>
+    <span class="chip">⏱️ ~60 min</span>
+  </div>
+
+  <nav class="toc" id="toc"></nav>
+</header>
+
+<!-- ============================================================= -->
+<section id="s1" data-title="The big picture">
+  <h2><span class="sn">01</span> The big picture <span class="t"></span></h2>
+  <p class="lede">What omnix is, in one breath — and the single design decision that shapes everything else.</p>
+
+  <p><strong>omnix</strong> extracts breast-cancer xenograft sample data from the lab's <strong>SLIMS</strong> system and serves it as a web app you can browse and filter. That's it. The whole codebase is four ideas: <em>talk to SLIMS</em>, <em>reshape the data</em>, <em>store it locally</em>, <em>serve a UI over it</em>.</p>
+
+  <p>The one decision to internalise: <strong>there is a hard boundary in the middle</strong>. Getting data <em>out of</em> SLIMS is slow (≈22 000 records) and gated (needs the EPFL VPN). Browsing needs to be fast and always-available. So we split the work into two commands that meet at a file on disk:</p>
+
+  <div class="lanes">
+    <div class="lane vpn"><span class="ltag">🔒 needs VPN · run occasionally</span>
+      <div class="flow">
+        <div class="node data"><b>SLIMS</b><span class="f">slims.epfl.ch</span></div>
+        <span class="arrow">→</span>
+        <div class="node" data-stage="client"><b>client</b><span class="f">client.py</span></div>
+        <span class="arrow">→</span>
+        <div class="node" data-stage="extract"><b>extract</b><span class="f">extract.py</span></div>
+        <span class="arrow">→</span>
+        <div class="node" data-stage="transform"><b>transform</b><span class="f">transform.py</span></div>
+        <span class="arrow">→</span>
+        <div class="node" data-stage="store"><b>store</b><span class="f">store.py</span></div>
+      </div>
+    </div>
+    <div style="text-align:center;color:var(--muted)">↓ &nbsp; <code>omnix snapshot</code> writes &nbsp; ↓</div>
+    <div class="lane local"><span class="ltag">💾 the boundary — a plain file</span>
+      <div class="flow"><div class="node data" style="flex:0 0 auto;margin:0 auto"><b>.omnix/snapshot.db</b><span class="f">SQLite</span></div></div>
+    </div>
+    <div style="text-align:center;color:var(--muted)">↓ &nbsp; <code>omnix serve</code> reads &nbsp; ↓</div>
+    <div class="lane local"><span class="ltag">🟢 no VPN · always fast</span>
+      <div class="flow">
+        <div class="node" data-stage="webapp"><b>web/app</b><span class="f">Flask</span></div>
+        <span class="arrow">→</span>
+        <div class="node data"><b>Browser</b><span class="f">tables · filters · export</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="muted" style="font-size:14px">Click any code box above — its role pops up below. We'll go through each in detail in §4.</p>
+  <div id="stagedetail"></div>
+
+  <div class="callout"><b>The mental model</b>“Extract once, browse many.” The snapshot <em>decouples</em> the slow, gated source from the fast, local UI. Almost every other design choice (SQLite, lazy imports, the two subcommands) falls out of this one boundary.</div>
+
+  <div class="check" data-answer="Because pulling from SLIMS is slow and needs the VPN, while browsing must be fast and always-available. The snapshot file decouples the two so you extract occasionally and browse anytime.">
+    <div class="q">🤔 Before moving on: why not just query SLIMS live on every page load?</div>
+    <button class="qbtn" onclick="this.closest('.check').classList.add('open')">Show a good answer</button>
+    <div class="reveal"></div>
+  </div>
+
+  <label class="done-toggle"><input type="checkbox" data-done="s1"> I understand the two-command architecture</label>
+</section>
+
+<!-- ============================================================= -->
+<section id="s2" data-title="SLIMS: the source">
+  <h2><span class="sn">02</span> SLIMS: the source of truth <span class="t"></span></h2>
+  <p class="lede">Where the data lives, and why its shape is so unusual. This is the part most collaborators find confusing — so it's worth really getting.</p>
+
+  <p>SLIMS is a commercial <strong>L</strong>ab <strong>I</strong>nformation <strong>M</strong>anagement <strong>S</strong>ystem. The UPBRI lab records every physical sample in it. Two surprises drive our whole approach:</p>
+
+  <h3>Surprise 1: everything is in one table</h3>
+  <p>Mice, tumors, blood vials, tissue for RNA — they're <em>all</em> rows in a single <code>Content</code> table. What kind of thing a row is comes from a foreign key, <code>cntn_fk_contentType</code> (Mouse = 19, Tumor = 10, Blood Sample = 21, …). To “fetch the mice” you query <code>Content where cntn_fk_contentType = 19</code>.</p>
+
+  <h3>Surprise 2: cryptic column names, but they're systematic</h3>
+  <p>Columns look like <code>cntn_cf_mammoid</code> or <code>cntn_fk_status</code>. There's a grammar: <code>&lt;4-letter table prefix&gt;_&lt;kind&gt;_&lt;field&gt;</code>. Decode a few yourself:</p>
+
+  <div class="card decoder">
+    <input id="decIn" spellcheck="false" value="cntn_cf_mammoid" aria-label="SLIMS column name">
+    <div class="presets" id="decPresets"></div>
+    <div class="decoded" id="decOut"></div>
+  </div>
+
+  <h3>Every column carries four things</h3>
+  <p>When you read a column from a record, you get a small bundle. This is why the code keeps reaching for <code>displayValue</code>:</p>
+  <table>
+    <tr><th>Attribute</th><th>Example</th><th>What it's for</th></tr>
+    <tr><td><code>name</code></td><td><code>cntn_fk_status</code></td><td>the cryptic machine id</td></tr>
+    <tr><td><code>title</code></td><td>“Status”</td><td>human label from the SLIMS UI</td></tr>
+    <tr><td><code>value</code></td><td><code>10</code></td><td>the raw value — for an FK, a bare primary key</td></tr>
+    <tr><td><code>displayValue</code></td><td>“Available”</td><td>the <em>resolved</em> label for that FK</td></tr>
+  </table>
+  <div class="callout"><b>Why it matters</b>For a foreign key, <code>value</code> is a useless number (<code>10</code>) but <code>displayValue</code> is the meaningful label (“Available”). Our <code>transform</code> layer prefers <code>displayValue</code> and only falls back to resolving the pk itself.</div>
+
+  <p class="muted">Bonus: SLIMS even describes its own schema — there's a <code>Field</code> metadata table listing all 470 fields across 46 tables. That's how the <code>docs/xenograft-data-model.md</code> mapping and the UML diagram were built, rather than by guessing.</p>
+
+  <div class="check" data-answer="cntn = the Content table; cf = a custom field (lab-defined, instance-specific); the field itself is 'mammoid'. So: a custom field named mammoid on Content records. (_fk_ would mean a foreign key instead.)">
+    <div class="q">🤔 What does <code>cntn_cf_mammoid</code> tell you, piece by piece?</div>
+    <button class="qbtn" onclick="this.closest('.check').classList.add('open')">Show a good answer</button>
+    <div class="reveal"></div>
+  </div>
+
+  <label class="done-toggle"><input type="checkbox" data-done="s2"> I can read a SLIMS column name and know what value vs displayValue give me</label>
+</section>
+
+<!-- ============================================================= -->
+<section id="s3" data-title="The domain model">
+  <h2><span class="sn">03</span> The domain model <span class="t"></span></h2>
+  <p class="lede">The clean shapes we reshape SLIMS into — and the one join key that both connects everything and causes the most trouble.</p>
+
+  <p>Raw <code>Content</code> rows are painful to work with, so <code>models.py</code> defines three tidy <a href="https://docs.pydantic.dev">pydantic</a> entity models:</p>
+  <table>
+    <tr><th>Model</th><th>From content type</th><th>Key fields</th></tr>
+    <tr><td><strong>Tumor</strong></td><td>10</td><td><code>slims_id</code>, <code>mammoid</code>, <code>tumor_type</code>, HER2/ER/PR/Ki67, + derived flags</td></tr>
+    <tr><td><strong>Mouse</strong></td><td>19</td><td><code>slims_id</code>, <code>mammoid</code>, <code>generation</code>, <code>treatment</code>, <code>mutations_raw</code></td></tr>
+    <tr><td><strong>Assay</strong></td><td>21, 5, …</td><td><code>slims_id</code>, <code>assay_type</code>, <code>mammoid</code>, <code>organ</code></td></tr>
+  </table>
+
+  <h3>The join key: <code>cntn_cf_mammoid</code></h3>
+  <p>All three entities carry a <code>mammoid</code> field (things like <code>T-050</code>, <code>M-37</code>). It's the thread that links a tumor to its mice and assays. <strong>But it's clean only on tumors.</strong> On mice it's free text — you'll see <code>850-9 MCF7 shHR + Treatments</code> as often as a tidy <code>T-050</code>.</p>
+
+  <div class="callout warn"><b>The honest limitation (a great colleague question)</b>On the real data, an exact mammoid match links only <strong>~14% of mice</strong> to a tumor. That's mostly <em>real biology</em>, not a bug: most of those mice are cell-line models (MCF7), not patient-derived tumors, so they have no <code>T-xxx</code> to link to. There is no clean mouse→tumor foreign key in SLIMS.</div>
+
+  <h3>Derived tumor fields</h3>
+  <p>Some fields aren't stored anywhere — we compute them by looking at a tumor's linked mice and assays:</p>
+  <ul>
+    <li><code>rna_sequenced</code> — is there a linked “Tissue for RNA” assay?</li>
+    <li><code>dna_sequenced</code> — is there a linked “DNA” sample? <span class="muted">(always <code>false</code> today — there are zero DNA records in SLIMS)</span></li>
+    <li><code>n_experiments</code> — count of distinct experiment numbers across linked samples</li>
+    <li><code>treatments</code> — the unique treatments of the linked mice</li>
+  </ul>
+
+  <div class="check" data-answer="mammoid (cntn_cf_mammoid). It's clean on tumors (T-050) but free text on mice, so exact-match linking catches only ~14% of mice — and most of the rest are cell-line models with no patient tumor to link to anyway.">
+    <div class="q">🤔 What field links a mouse to its tumor, and what's the catch?</div>
+    <button class="qbtn" onclick="this.closest('.check').classList.add('open')">Show a good answer</button>
+    <div class="reveal"></div>
+  </div>
+
+  <label class="done-toggle"><input type="checkbox" data-done="s3"> I know the four models, the mammoid join, and why it's imperfect</label>
+</section>
+
+<!-- ============================================================= -->
+<section id="s4" data-title="The pipeline, module by module">
+  <h2><span class="sn">04</span> The pipeline, module by module <span class="t"></span></h2>
+  <p class="lede">The heart of the tour. Click through each module — what it owns, and the one function that matters.</p>
+
+  <div class="flow" id="pipeTabs" style="margin:6px 0 4px">
+    <div class="node" data-mod="client"><b>client</b><span class="f">connect to SLIMS</span></div>
+    <div class="node" data-mod="extract"><b>extract</b><span class="f">fetch records</span></div>
+    <div class="node" data-mod="transform"><b>transform</b><span class="f">reshape + link</span></div>
+    <div class="node" data-mod="store"><b>store</b><span class="f">SQLite I/O</span></div>
+    <div class="node" data-mod="snapshot"><b>snapshot</b><span class="f">orchestrate</span></div>
+    <div class="node" data-mod="cli"><b>cli</b><span class="f">commands</span></div>
+  </div>
+  <div id="modDetail" class="card"></div>
+
+  <div class="check" data-answer="transform.derive_tumor_fields. It builds an index of mice and assays keyed by normalized mammoid, then for each tumor pulls the matching ones to set rna_sequenced, n_experiments, treatments, etc.">
+    <div class="q">🤔 Which function computes a tumor's <code>rna_sequenced</code> / <code>treatments</code>, and how does it find the related records?</div>
+    <button class="qbtn" onclick="this.closest('.check').classList.add('open')">Show a good answer</button>
+    <div class="reveal"></div>
+  </div>
+
+  <label class="done-toggle"><input type="checkbox" data-done="s4"> I can name what each pipeline module owns</label>
+</section>
+
+<!-- ============================================================= -->
+<section id="s5" data-title="The web app">
+  <h2><span class="sn">05</span> The web app <span class="t"></span></h2>
+  <p class="lede">Flask + HTMX + Jinja, no build step. How a filter keystroke becomes an updated table.</p>
+
+  <p><code>web/app.py</code> is an <strong>app factory</strong>: <code>create_app(db_path)</code> builds a Flask app that opens the SQLite file <strong>read-only</strong>, once per request. The routes:</p>
+  <table>
+    <tr><th>Route</th><th>Does</th></tr>
+    <tr><td><code>/</code></td><td>dashboard — counts + summary breakdowns</td></tr>
+    <tr><td><code>/&lt;slug&gt;</code></td><td>full list page for tumors / mice / assays (filters + table)</td></tr>
+    <tr><td><code>/&lt;slug&gt;/rows</code></td><td><strong>HTMX partial</strong> — just the table body, for live filtering</td></tr>
+    <tr><td><code>/tumor/&lt;id&gt;</code></td><td>detail + drill-down into linked mice & assays</td></tr>
+    <tr><td><code>/export/&lt;slug&gt;.csv|.json</code></td><td>download the <em>currently filtered</em> set</td></tr>
+  </table>
+
+  <h3>The HTMX pattern — the one trick to understand</h3>
+  <p>There's no JavaScript framework and no API. The filter form has HTMX attributes that say: “when an input changes, GET <code>/tumors/rows</code> and swap the result into <code>#rows</code>.” The server renders the same partial template it used for the initial page. Progressive enhancement: with JS off, the form still submits as a normal GET.</p>
+  <div class="filebar">list.html — the filter form</div>
+<pre>&lt;form hx-get="/tumors/rows"
+      hx-target="#rows"
+      hx-trigger="change, keyup delay:350ms"&gt;
+   <span class="c">&lt;!-- filter selects + inputs --&gt;</span>
+&lt;/form&gt;
+&lt;div id="rows"&gt; <span class="c">&lt;!-- _rows.html renders here, replaced on each change --&gt;</span> &lt;/div&gt;</pre>
+
+  <div class="callout"><b>Why this is nice here</b>Single-user, local, data-browsing tool → a full React SPA would be overkill. Server-rendered HTML + HTMX means no build step, no Node, and the templates are the whole UI. Flask was already a transitive dependency, so it cost nothing to adopt.</div>
+
+  <h3>Security detail worth knowing</h3>
+  <p>Filters build SQL <code>WHERE</code> clauses, so <code>store.py</code> keeps a <strong>whitelist</strong> (<code>FILTER_COLUMNS</code>) of which columns may be filtered. Values are always passed as bound parameters (<code>?</code>), never string-formatted. A malicious <code>?er=90; DROP TABLE tumor</code> is simply ignored because <code>er</code> isn't whitelisted — there's a test for exactly that.</p>
+
+  <div class="check" data-answer="The list page's filter form has HTMX attributes; on change it GETs /<entity>/rows and swaps that HTML fragment into the #rows div. The server renders the same _rows.html partial. No API, no client framework — and it still works as a plain form GET without JS.">
+    <div class="q">🤔 A colleague asks “how does typing in a filter update the table without a page reload?” — what do you say?</div>
+    <button class="qbtn" onclick="this.closest('.check').classList.add('open')">Show a good answer</button>
+    <div class="reveal"></div>
+  </div>
+
+  <label class="done-toggle"><input type="checkbox" data-done="s5"> I understand the routes and the HTMX partial pattern</label>
+</section>
+
+<!-- ============================================================= -->
+<section id="s6" data-title="The database">
+  <h2><span class="sn">06</span> The database <span class="t"></span></h2>
+  <p class="lede">One SQLite file, five real tables, a full-text index.</p>
+
+  <p>The snapshot lives at <code>.omnix/snapshot.db</code> (gitignored). Every entity table has a primary-key <code>slims_id</code>, the modelled columns broken out for filtering, and a <code>raw_json</code> column preserving the <em>complete</em> SLIMS record so nothing is lost.</p>
+  <div class="filebar">store.py — SCHEMA (abridged)</div>
+<pre>tumor(slims_id PK, mammoid, tumor_type, subtype, grade, her2, er, pr, ki67,
+      rna_sequenced, dna_sequenced, n_experiments, treatments, raw_json)
+mouse(slims_id PK, mammoid, mouse_exp_nb, generation, treatment,
+      mutations_raw, strain, sex, project, raw_json)
+assay(slims_id PK, assay_type, mammoid, mouse_exp_nb, organ, raw_json)
+snapshot_meta(created_at, source_url, counts_json)</pre>
+
+  <ul>
+    <li><strong>Why SQLite?</strong> Zero-config, single file, no server. Perfect for a local single-user snapshot. It's stdlib — no extra dependency.</li>
+    <li><strong>Indexes</strong> on <code>mammoid</code> (all three tables) plus type/generation columns keep filtering snappy at ~22k rows.</li>
+    <li>It's just a file — open it with <code>sqlite3 .omnix/snapshot.db</code>, DB Browser, or pandas.</li>
+  </ul>
+
+  <label class="done-toggle"><input type="checkbox" data-done="s6"> I know the schema shape and why it's SQLite</label>
+</section>
+
+<!-- ============================================================= -->
+<section id="s7" data-title="Gotchas & honesty">
+  <h2><span class="sn">07</span> Gotchas & honest limitations <span class="t"></span></h2>
+  <p class="lede">The things that trip people up — and the caveats you should volunteer before a colleague discovers them.</p>
+
+  <details><summary>Why <code>serve</code> imports the SLIMS stack lazily</summary>
+    <p><code>cli.py</code> imports <code>requests</code>/<code>slims</code> <strong>inside</strong> the <code>snapshot</code>/<code>dump</code> commands, not at module load — so <code>serve</code> (which only reads the local snapshot) never pulls in the network/SLIMS stack at all. Keeps the browse path light and dependency-decoupled from the extract path.</p>
+  </details>
+
+  <details><summary>Sparse legacy records</summary>
+    <p>The oldest mice have empty <code>mammoid</code> / <code>generation</code> / experiment number — the populated experimental cohort is at higher primary keys. So a small <code>--limit</code> snapshot (which grabs the oldest first) looks emptier than reality. Use a full snapshot to judge coverage.</p>
+  </details>
+
+  <details><summary>Two “generation” columns</summary>
+    <p><code>cntn_cf_generationMm</code> (better populated, <code>P…</code> values) vs <code>cntn_cf_generation</code> (the <code>G…</code> series like <code>G7(5)</code>). We keep both; the model exposes <code>generation</code> and <code>generation_mm</code>.</p>
+  </details>
+
+  <details><summary><code>dna_sequenced</code> is always false</summary>
+    <p>The DNA content type exists but has zero records today, so this derived flag is always <code>false</code>. It's shown but flagged — confirm with the lab whether DNA is tracked under another type before trusting it.</p>
+  </details>
+
+  <label class="done-toggle"><input type="checkbox" data-done="s7"> I could warn a colleague about these before they hit them</label>
+</section>
+
+<!-- ============================================================= -->
+<section id="s8" data-title="Comprehension quiz">
+  <h2><span class="sn">08</span> Comprehension quiz <span class="t"></span></h2>
+  <p class="lede">Twelve questions across the whole project. Pick an answer to see if it's right and why. Aim for 10+.</p>
+  <div class="quiz" id="quiz"></div>
+</section>
+
+<!-- ============================================================= -->
+<section id="s9" data-title="Explain it to a colleague" style="border-bottom:none">
+  <h2><span class="sn">09</span> Now explain it to a colleague <span class="t"></span></h2>
+  <p class="lede">The real test. Try answering each out loud <em>before</em> opening the model answer.</p>
+
+  <details><summary>“Walk me through what happens when I run <code>just snapshot</code>.”</summary>
+    <p><code>cli</code> parses the <code>snapshot</code> subcommand → <code>snapshot.run()</code> loads <code>.env</code> creds (<code>client.load_config</code>), opens a SLIMS connection (<code>client.connect</code>), and pages every tumor/mouse/treatment/assay content type out of the <code>Content</code> table (<code>extract.fetch_all</code>). Each record is reshaped into a pydantic model (<code>transform.to_tumor</code> etc.), treatments are resolved through an FK lookup, and tumors get their derived fields via the mammoid index. Everything is written to a fresh SQLite file with a full-text index (<code>store.write_snapshot</code>). All of this runs behind the VPN; the web app never repeats it.</p>
+  </details>
+  <details><summary>“Why is the web app so simple — no React, no API?”</summary>
+    <p>It's a single-user, local, read-only data browser over a static snapshot. Server-rendered Jinja templates plus HTMX give live filtering with no build step, no Node, and no separate API layer. Flask was already available transitively. The complexity budget went into the data pipeline, not the frontend.</p>
+  </details>
+  <details><summary>“Can I trust the mouse→tumor links?”</summary>
+    <p>Partially. Linking is by the <code>mammoid</code> field, which is clean on tumors but free text on mice, so only ~14% of mice match a tumor exactly — and most of the rest are cell-line models with no patient tumor at all. The drill-down shows matched links honestly and says when nothing matched. There's no true foreign key; eartags + tissue samples could bridge more PDX links if we needed higher coverage.</p>
+  </details>
+  <details><summary>“Where's the data and how fresh is it?”</summary>
+    <p>A SQLite file at <code>.omnix/snapshot.db</code>, produced by the last <code>omnix snapshot</code> run. Freshness = whenever that was; <code>snapshot_meta</code> records the timestamp and source URL. Re-run <code>just snapshot</code> to refresh. The web app never talks to SLIMS itself.</p>
+  </details>
+
+  <p style="margin-top:24px">If you can answer those comfortably, you're ready. Want me to quiz you live on any section, or go deeper on the parts you're least sure about? Just say which.</p>
+</section>
+
+<footer><div>omnix guided tour · generated as <code>docs/tutorial.html</code> · open in any browser, no server needed.</div></footer>
+
+</div>
+
+<div id="score" style="display:none"></div>
+
+<script>
+/* ---------- data: pipeline stages & modules ---------- */
+const STAGES = {
+  client:{t:"client.py — the connection",d:"Reads your four SLIMS credentials from <code>.env</code> and opens an authenticated Slims client. Nothing else. It's the single place credentials are handled."},
+  extract:{t:"extract.py — fetching",d:"Knows the content-type primary keys (Tumor 10, Mouse 19…) and pages records out of the <code>Content</code> table in chunks of 1000. <code>fetch_all</code> is what the snapshot uses; <code>fetch_content</code> (a tiny capped fetch) backs the <code>dump</code> debug command."},
+  transform:{t:"transform.py — reshape + link",d:"The brains. Turns raw records into pydantic models, resolves the treatment FK, and — crucially — links tumors to their mice/assays by mammoid to compute derived fields."},
+  store:{t:"store.py — SQLite I/O",d:"Owns the schema, writing the snapshot, and every read query the web app makes (filter, paginate, drill-down). Also holds the column whitelist that keeps filtering injection-safe."},
+  webapp:{t:"web/app.py — the UI server",d:"A Flask app factory that reads the SQLite file read-only and renders Jinja templates, with HTMX partials for live filtering. Never touches SLIMS."}
+};
+const MODULES = {
+  client:{title:"client.py",owns:"Credentials + connection to SLIMS.",fn:"connect(config) → Slims",
+    code:`<span class="c"># load_config(): read SLIMS_NAME/URL/USER/SECRET from .env,</span>
+<span class="c"># raise SystemExit with a helpful hint if any are missing.</span>
+def connect(config) -> Slims:
+    return Slims(config["SLIMS_NAME"], config["SLIMS_URL"],
+                 config["SLIMS_USER"], config["SLIMS_SECRET"])`},
+  extract:{title:"extract.py",owns:"Content-type constants + fetching records (with paging).",fn:"fetch_all(slims, content_type_pk, limit=None)",
+    code:`TUMOR_TYPE, MOUSE_TYPE, TREATMENT_TYPE = 10, 19, 41
+ASSAY_TYPES = {"Blood Sample": 21, "Tissue for RNA": 5}
+
+def fetch_all(slims, content_type_pk, page_size=1000, limit=None):
+    <span class="c"># page through Content by row index until a short page,</span>
+    <span class="c"># filtering on cntn_fk_contentType == content_type_pk</span>
+    ...`},
+  transform:{title:"transform.py",owns:"Raw record → model, FK resolution, and the mammoid link.",fn:"derive_tumor_fields(tumors, mice, assays)",
+    code:`def derive_tumor_fields(tumors, mice, assays):
+    mice_by   = _index_by_mammoid(mice)     <span class="c"># normalized-key index</span>
+    assays_by = _index_by_mammoid(assays)
+    for t in tumors:
+        key = normalize_mammoid(t.mammoid)  <span class="c"># trim + uppercase</span>
+        linked_assays = assays_by.get(key, [])
+        linked_mice   = mice_by.get(key, [])
+        t.rna_sequenced  = "Tissue for RNA" in {a.assay_type for a in linked_assays}
+        t.n_experiments  = len({a.mouse_exp_nb for a in linked_assays if a.mouse_exp_nb})
+        t.treatments     = sorted({m.treatment for m in linked_mice if m.treatment})`},
+  store:{title:"store.py",owns:"Schema, snapshot writing, and all read queries. Injection-safe filtering.",fn:"list_entity / linked_to_tumor",
+    code:`FILTER_COLUMNS = {   <span class="c"># whitelist: only these columns may be filtered</span>
+  "tumor": ["tumor_type","subtype","grade","her2","mammoid","rna_sequenced"], ...}
+
+def _where(entity, filters):
+    for col, val in filters.items():
+        if col not in FILTER_COLUMNS[entity]: continue   <span class="c"># ignore unknowns</span>
+        clauses.append(f"{col} LIKE ?"); params.append(f"%{val}%")  <span class="c"># bound param</span>`},
+  snapshot:{title:"snapshot.py",owns:"Orchestrates the whole ETL: extract → transform → store.",fn:"run(db_path, limit=None)",
+    code:`def run(db_path, limit=None):
+    slims = connect(load_config())
+    tumors  = [to_tumor(r)  for r in fetch_all(slims, TUMOR_TYPE, limit=limit)]
+    mice    = [to_mouse(r, treatment_lookup) for r in fetch_all(slims, MOUSE_TYPE, ...)]
+    assays  = [to_assay(r)  for r in ...ASSAY_TYPES...]
+    derive_tumor_fields(tumors, mice, assays)
+    write_snapshot(conn, tumors, mice, assays, source_url, raw_by_id)`},
+  cli:{title:"cli.py",owns:"The three subcommands (snapshot / serve / dump).",fn:"snapshot · serve · dump",
+    code:`<span class="c"># The SLIMS/HTTP stack is imported inside the commands that use it, so</span>
+<span class="c"># 'serve' (a snapshot-only reader) never imports it and stays light.</span>
+def cmd_serve(args):
+    from .web.app import create_app          <span class="c"># lazy</span>
+    create_app(args.db).run(host=args.host, port=args.port)
+
+def cmd_snapshot(args):
+    from . import snapshot as snapshot_mod   <span class="c"># lazy: only snapshot/dump need it</span>
+    snapshot_mod.run(args.db, limit=args.limit)`}
+};
+
+/* ---------- quiz ---------- */
+const QUIZ=[
+ {q:"Why are <code>snapshot</code> and <code>serve</code> two separate commands?",
+  o:["To keep the code files smaller","Because extracting from SLIMS is slow/VPN-gated/fragile, while browsing must be fast and offline — the snapshot file decouples them","Because Flask can't talk to SLIMS","So two people can run them at once"],a:1,
+  e:"The VPN/performance boundary is THE core design decision. Extract occasionally, browse anytime."},
+ {q:"Where does all the sample data live inside SLIMS?",
+  o:["One table per sample type (mouse, tumor, …)","A single <code>Content</code> table, split by <code>cntn_fk_contentType</code>","In flat CSV exports","In the <code>Field</code> metadata table"],a:1,
+  e:"Everything is a Content row; the content-type FK says what kind of thing it is."},
+ {q:"In a column name, what does the <code>_cf_</code> segment mean?",
+  o:["Content foreign key","A custom (lab-defined) field","A computed field","Confidential field"],a:1,
+  e:"_cf_ = custom field; _fk_ = foreign key. The domain data lives mostly in custom fields."},
+ {q:"For a foreign-key column, which attribute gives the human-readable label?",
+  o:["<code>value</code>","<code>name</code>","<code>displayValue</code>","<code>title</code>"],a:2,
+  e:"value is the raw pk (e.g. 10); displayValue resolves it (e.g. 'Available'). title is the field's label, not the value's."},
+ {q:"What is <code>cntn_cf_mammoid</code> used for across the models?",
+  o:["It's the SLIMS primary key","It's the join key linking tumors, mice and assays","It's the raw SLIMS row id","It's the treatment name"],a:1,
+  e:"mammoid threads the three entities together — but it's clean only on tumors."},
+ {q:"Why does an exact mammoid match link only ~14% of mice to tumors?",
+  o:["A bug in the join code","Mouse mammoid is free text, and most mice are cell-line models with no patient tumor","The database index is missing","SLIMS rate-limits the query"],a:1,
+  e:"Mostly real biology, not a defect: no true mouse→tumor foreign key exists."},
+ {q:"Which function computes a tumor's <code>rna_sequenced</code> and <code>treatments</code>?",
+  o:["<code>store.write_snapshot</code>","<code>transform.derive_tumor_fields</code>","<code>extract.fetch_all</code>","<code>web.charts.summary</code>"],a:1,
+  e:"It indexes mice/assays by mammoid, then attaches the matches to each tumor."},
+ {q:"Why does the web app open the SQLite snapshot <em>read-only</em>?",
+  o:["SQLite requires it for concurrent reads","So a browsing session can never accidentally mutate or corrupt the snapshot","It makes queries measurably faster","Because the snapshot file is compressed"],a:1,
+  e:"The app only ever reads; opening read-only guarantees browsing can't alter the extracted data. Refreshing is a deliberate re-run of snapshot."},
+ {q:"How does live filtering update the table without a full page reload?",
+  o:["A React component fetches JSON","HTMX GETs a <code>/&lt;entity&gt;/rows</code> partial and swaps it into the page","WebSockets push new rows","The page auto-refreshes every second"],a:1,
+  e:"Server renders the same _rows.html partial; HTMX swaps it in. Works as a plain form GET without JS too."},
+ {q:"What stops a malicious <code>?tumor_type=x; DROP TABLE tumor</code> filter?",
+  o:["Flask escapes it automatically","A column whitelist plus bound (<code>?</code>) parameters","SQLite is read-only so nothing can be dropped","Nothing — it's a known risk"],a:1,
+  e:"Both, really: unknown columns are ignored (whitelist) AND values are bound params. Read-only mode is a third layer."},
+ {q:"What is the <code>raw_json</code> column on each entity table for?",
+  o:["Debug logging","It preserves the complete original SLIMS record, so no field is lost even though only some are broken out into typed columns","It stores the snapshot timestamp","It's a backup copy of the whole database"],a:1,
+  e:"Only the modeled columns are broken out for filtering; raw_json keeps every other SLIMS field available (e.g. the detail page's 'all SLIMS columns' section)."},
+ {q:"Why is <code>dna_sequenced</code> always <code>false</code> right now?",
+  o:["We haven't implemented it","There are zero DNA-type records in SLIMS today","DNA data is confidential","It's a boolean bug"],a:1,
+  e:"The DNA content type exists but is empty; the flag is shown-but-flagged pending lab confirmation."}
+];
+
+/* ---------- build TOC ---------- */
+const secs=[...document.querySelectorAll('section')];
+const toc=document.getElementById('toc');
+secs.forEach(s=>{const a=document.createElement('a');a.href='#'+s.id;
+  a.innerHTML=`<span class="n">${s.querySelector('.sn').textContent}</span><span>${s.dataset.title}</span>`;
+  toc.appendChild(a);});
+
+/* ---------- progress ---------- */
+const KEY='omnix_tut_done';
+let done=new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));
+function refreshProg(){
+  document.querySelectorAll('[data-done]').forEach(cb=>{cb.checked=done.has(cb.dataset.done);});
+  const total=document.querySelectorAll('[data-done]').length;
+  const pct=Math.round(done.size/total*100);
+  document.getElementById('progfill').style.width=pct+'%';
+  document.getElementById('progpct').textContent=pct+'%';
+}
+document.querySelectorAll('[data-done]').forEach(cb=>{
+  cb.addEventListener('change',()=>{cb.checked?done.add(cb.dataset.done):done.delete(cb.dataset.done);
+    localStorage.setItem(KEY,JSON.stringify([...done]));refreshProg();});});
+refreshProg();
+
+/* ---------- inline checks: fill reveal text ---------- */
+document.querySelectorAll('.check').forEach(c=>{c.querySelector('.reveal').textContent=c.dataset.answer;});
+
+/* ---------- stage detail (section 1) ---------- */
+const sd=document.getElementById('stagedetail');
+document.querySelectorAll('.node[data-stage]').forEach(n=>{
+  n.addEventListener('click',()=>{
+    document.querySelectorAll('.node[data-stage]').forEach(x=>x.classList.remove('active'));
+    n.classList.add('active');const s=STAGES[n.dataset.stage];
+    sd.className='card';sd.innerHTML=`<b>${s.t}</b><div style="margin-top:4px;color:var(--ink-2)">${s.d}</div>`;});
+});
+
+/* ---------- module tabs (section 4) ---------- */
+const md=document.getElementById('modDetail');
+function showMod(k){
+  document.querySelectorAll('#pipeTabs .node').forEach(x=>x.classList.toggle('active',x.dataset.mod===k));
+  const m=MODULES[k];
+  md.innerHTML=`<b style="font-size:16px">${m.title}</b>
+    <div style="margin:6px 0"><span class="muted">Owns:</span> ${m.owns}</div>
+    <div style="margin:6px 0"><span class="muted">Key entry point:</span> <code>${m.fn}</code></div>
+    <pre>${m.code}</pre>`;
+}
+document.querySelectorAll('#pipeTabs .node').forEach(n=>n.addEventListener('click',()=>showMod(n.dataset.mod)));
+showMod('client');
+
+/* ---------- decoder (section 2) ---------- */
+const TBL={cntn:"Content",cntp:"ContentType",lctn:"Location",rslt:"Result",ordr:"Order",
+  xprm:"Experiment",xprn:"ExperimentRun",tbfl:"Field (metadata)",user:"User",grps:"Groups",
+  attm:"Attachment",prjc:"Project",stts:"Status"};
+const decOut=document.getElementById('decOut'),decIn=document.getElementById('decIn');
+function box(k,v,mono){return `<div class="box"><div class="k">${k}</div><div class="v${mono?' mono':''}">${v||'—'}</div></div>`;}
+function decode(){
+  const raw=decIn.value.trim();const parts=raw.split('_').filter(Boolean);
+  if(!parts.length){decOut.innerHTML='';return;}
+  const pfx=parts[0];const table=TBL[pfx]||'⚠ unknown prefix';
+  const isCf=parts.includes('cf'),isFk=parts.includes('fk');
+  let kind=isFk?'foreign key (→ another record)':isCf?'custom field (lab-defined)':'built-in field';
+  if(isCf&&isFk)kind='custom foreign key (→ another record)';
+  const field=parts.slice(1).filter(p=>p!=='cf'&&p!=='fk').join('_')||'(none)';
+  let reads=`On <b>${table}</b> records, the ${isCf?'custom ':''}${isFk?'foreign-key ':''}field <b>${field}</b>.`;
+  if(isFk)reads+=` Its <code>value</code> is a pk; read <code>displayValue</code> for the label.`;
+  decOut.innerHTML=box('table prefix',`${pfx} → ${table}`,true)+box('kind',kind)+
+    box('field',field,true)+`<div class="box" style="grid-column:1/-1"><div class="k">reads as</div><div class="v" style="font-weight:400;font-size:14px">${reads}</div></div>`;
+}
+["cntn_cf_mammoid","cntn_fk_status","cntn_cf_fk_treatment","cntn_id","cntp_name","lctn_barCode"].forEach(p=>{
+  const b=document.createElement('button');b.textContent=p;b.onclick=()=>{decIn.value=p;decode();};
+  document.getElementById('decPresets').appendChild(b);});
+decIn.addEventListener('input',decode);decode();
+
+/* ---------- quiz ---------- */
+const qc=document.getElementById('quiz');let answered=new Set(),correct=0;
+QUIZ.forEach((item,i)=>{
+  const d=document.createElement('div');d.className='q';
+  d.innerHTML=`<div class="qtext">${i+1}. ${item.q}</div>`+
+    item.o.map((o,j)=>`<button class="opt" data-i="${i}" data-j="${j}">${o}</button>`).join('')+
+    `<div class="explain">${item.e}</div>`;
+  qc.appendChild(d);
+});
+const scoreBar=document.getElementById('score');
+qc.addEventListener('click',e=>{
+  const b=e.target.closest('.opt');if(!b)return;const i=+b.dataset.i,j=+b.dataset.j;
+  if(answered.has(i))return;answered.add(i);
+  const box=b.closest('.q');box.querySelectorAll('.opt').forEach(o=>o.disabled=true);
+  if(j===QUIZ[i].a){b.classList.add('correct');correct++;}
+  else{b.classList.add('wrong');box.querySelector(`.opt[data-j="${QUIZ[i].a}"]`).classList.add('correct');}
+  box.querySelector('.explain').classList.add('show');
+  scoreBar.style.display='block';
+  scoreBar.textContent=`Score: ${correct} / ${answered.size} answered  (of ${QUIZ.length})`;
+  if(answered.size===QUIZ.length)scoreBar.textContent+=correct>=10?"  🎉 you've got this":"  — revisit the ones you missed";
+});
+</script>
+</body>
+</html>

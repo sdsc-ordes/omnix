@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}omnix{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='htmx.min.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <nav>
+      <a href="{{ url_for('dashboard') }}" class="brand">omnix</a>
+      <a href="{{ url_for('entity_list', slug='tumors') }}">Tumors</a>
+      <a href="{{ url_for('entity_list', slug='mice') }}">Mice</a>
+      <a href="{{ url_for('entity_list', slug='assays') }}">Assays</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

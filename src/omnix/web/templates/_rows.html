@@ -1,0 +1,50 @@
+<div id="rows">
+  <div class="rowsbar">
+    <span class="count">{{ total }} result{{ '' if total == 1 else 's' }}</span>
+    <span class="exports">
+      export
+      <a href="{{ url_for('export', slug=slug, fmt='csv') }}?{{ qs() }}">CSV</a>
+      <a href="{{ url_for('export', slug=slug, fmt='json') }}?{{ qs() }}">JSON</a>
+    </span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>{% for col, label in cfg.columns %}<th>{{ label }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            {% for col, label in cfg.columns %}
+              <td>
+                {% if loop.first %}
+                  <a href="{{ url_for(cfg.entity ~ '_detail', slims_id=r['slims_id']) }}">{{ r[col] }}</a>
+                {% else %}
+                  {{ fmt_cell(col, r[col]) }}
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% else %}
+          <tr><td colspan="{{ cfg.columns|length }}" class="muted">No matching records.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% set pages = (total + per_page - 1) // per_page %}
+  {% if pages > 1 %}
+    <div class="pager">
+      {% if page > 1 %}
+        <a hx-get="{{ url_for('entity_rows', slug=slug) }}?{{ qs(page=page-1) }}"
+           hx-target="#rows" href="{{ url_for('entity_list', slug=slug) }}?{{ qs(page=page-1) }}">‹ prev</a>
+      {% endif %}
+      <span>page {{ page }} / {{ pages }}</span>
+      {% if page < pages %}
+        <a hx-get="{{ url_for('entity_rows', slug=slug) }}?{{ qs(page=page+1) }}"
+           hx-target="#rows" href="{{ url_for('entity_list', slug=slug) }}?{{ qs(page=page+1) }}">next ›</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
