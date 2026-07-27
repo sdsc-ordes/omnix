@@ -26,7 +26,7 @@ from dataclasses import dataclass
 #             "cntn_cf_Grade"   any SLIMS column  -> read from raw_json
 #             "mammoid"         a promoted column already on `content`
 #                               (slims_id, content_type, mammoid, original_content)
-#             "@n_experiments"  a derived value  (see DERIVED further down)
+#             "@n_xenografts"  a derived value  (see DERIVED further down)
 #  flags    optional string, any of:
 #             l  show this column in the list table
 #             f  offer it as a filter widget
@@ -246,7 +246,6 @@ _FALLBACK = Kind(
         Field("slims_id", "ID", content_col="slims_id", in_list=True),
         Field("assay_type", "Type", content_col="content_type", in_list=True, filterable=True),
         Field("mammoid", "Sample", content_col="mammoid", in_list=True, filterable=True),
-        Field("n_experiments", "#Exp", derived="n_experiments", in_list=True),
     ),
 )
 
