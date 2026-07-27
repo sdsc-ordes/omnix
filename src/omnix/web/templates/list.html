@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}omnix — {{ cfg.title }}{% endblock %}
+{% block title %}omnix — {{ kind.title }}{% endblock %}
 {% block content %}
-<h1>{{ cfg.title }}</h1>
+<h1>{{ kind.title }}</h1>
 
 <form class="filters"
-      hx-get="{{ url_for('entity_rows', slug=slug) }}"
+      hx-get="{{ url_for('entity_rows', slug=kind.slug) }}"
       hx-target="#rows"
       hx-trigger="change, keyup delay:350ms"
       hx-push-url="true">
@@ -23,7 +23,7 @@
       {% endif %}
     </label>
   {% endfor %}
-  <a class="clear" href="{{ url_for('entity_list', slug=slug) }}">clear</a>
+  <a class="clear" href="{{ url_for('entity_list', slug=kind.slug) }}">clear</a>
 </form>
 
 {% include "_rows.html" %}

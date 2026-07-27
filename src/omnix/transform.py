@@ -1,36 +1,70 @@
-"""Reshape raw SLIMS ``Content`` records into the Tumor/Mouse/Assay models.
+"""Reshape raw SLIMS records into the row dicts that ``store`` writes.
 
-Column names are pinned in ``docs/xenograft-data-model.md``. Everything reads
-from ``record.json_entity["columns"]`` (safe for absent/sparse columns) rather
-than the attribute accessors, which raise on missing columns.
+Everything reads from ``record.json_entity["columns"]``. Each row dict's keys
+are exactly the SQL column names for its table,
+so ``store._insert_many`` builds the INSERT from the dict and a positional
+mismatch cannot happen.
+
+There is no longer any record -> Tumor/Mouse/Assay code here: those types are
+projected out of the stored ``content`` table by SQL views (see
+``content_types`` and ``store.build_type_views``), so a Content record only
+needs turning into one generic ``content`` row.
 """
+
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from .models import Assay, Mouse, Tumor
+from . import slims_spec
+from .store import PROMOTED_CONTENT_COLUMNS
+
+
 
 # --- low-level column access -------------------------------------------------
 
 
-def _columns(record: Any) -> dict[str, dict]:
-    return {c.get("name"): c for c in record.json_entity["columns"]}
+def _columns(
+    record: Any,
+) -> dict[str, dict]:
+    return {c.get("name"): c for c in record.json_entity.get("columns", []) if c.get("name")}
 
 
-def _val(cols: dict[str, dict], name: str) -> Any:
+def _val(
+    cols: dict[str, dict],
+    name: str | None,
+) -> Any:
+    if name is None:
+        return None
     col = cols.get(name)
     return col.get("value") if col else None
 
 
-def _disp(cols: dict[str, dict], name: str) -> Any:
+def _disp(
+    cols: dict[str, dict],
+    name: str | None,
+) -> Any:
+    """Best human label for a column: joined multi-fk, multi-fk, single fk, raw."""
+    if name is None:
+        return None
     col = cols.get(name)
     if not col:
         return None
-    return col.get("displayValue")
+    joined = col.get("joinedDisplayValue")
+    if joined not in (None, ""):
+        return joined
+    values = col.get("displayValues")
+    if values:
+        return ", ".join(str(v) for v in values if v not in (None, ""))
+    disp = col.get("displayValue")
+    if disp not in (None, ""):
+        return disp
 
 
-def raw_dump(record: Any) -> dict[str, Any]:
+def raw_dump(
+    record: Any,
+) -> dict[str, Any]:
     """All non-empty columns of a record as {name: value} -- stored as raw_json
     so a detail page can show every SLIMS field, not just the modeled ones."""
     out: dict[str, Any] = {}
@@ -41,7 +75,10 @@ def raw_dump(record: Any) -> dict[str, Any]:
     return out
 
 
-def _text(cols: dict[str, dict], name: str) -> str | None:
+def _text(
+    cols: dict[str, dict],
+    name: str | None,
+) -> str | None:
     """A column's value as a trimmed string (numbers rendered without .0)."""
     v = _val(cols, name)
     if v in (None, "", []):
@@ -51,120 +88,102 @@ def _text(cols: dict[str, dict], name: str) -> str | None:
     return str(v).strip()
 
 
-# --- record -> model ---------------------------------------------------------
+def label(cols: dict[str, dict], name: str | None) -> str | None:
+    """Resolved label if the column is an fk, else the raw value as text."""
+    disp = _disp(cols, name)
+    if disp not in (None, ""):
+        return str(disp).strip()
+    return _text(cols, name)
 
 
-def to_tumor(record: Any) -> Tumor:
+# --- record -> row -----------------------------------------------------------
+
+
+def experiment_row(
+    record: Any,
+    project_pk: int,
+    base_url: str,
+) -> dict[str, Any]:
     c = _columns(record)
-    return Tumor(
-        slims_id=_text(c, "cntn_id") or str(record.pk()),
-        mammoid=_text(c, "cntn_cf_mammoid"),
-        name=_text(c, "cntn_cf_Name"),
-        tumor_type=_text(c, "cntn_cf_Type"),
-        subtype=_text(c, "cntn_cf_subtype"),
-        grade=_text(c, "cntn_cf_Grade"),
-        er=_text(c, "cntn_cf_erShortText"),
-        pr=_text(c, "cntn_cf_prShortText"),
-        her2=_text(c, "cntn_cf_Her2"),
-        ki67=_text(c, "cntn_cf_ki67ShortText"),
-    )
+    return {
+        "pk": record.pk(),
+        "project_pk": project_pk,
+        "name": _text(c, slims_spec.EXPERIMENT.name),
+        "slims_link": slims_spec.experiment_link(base_url, record.pk()),
+        "raw_json": json.dumps(raw_dump(record)),
+    }
 
 
-def to_mouse(record: Any, treatment_lookup: dict[int, str] | None = None) -> Mouse:
+def run_row(
+    record: Any,
+    base_url: str,
+    experiment_pk: int | None = None,
+) -> dict[str, Any]:
+    """`experiment_pk` is read off the record itself; pass it only as a fallback
+    for instances where the fk is not returned in the column list."""
     c = _columns(record)
-    return Mouse(
-        slims_id=_text(c, "cntn_id") or str(record.pk()),
-        mammoid=_text(c, "cntn_cf_mammoid"),
-        mouse_exp_nb=_text(c, "cntn_cf_mouseExpNb"),
-        generation=_text(c, "cntn_cf_generation"),
-        generation_mm=_text(c, "cntn_cf_generationMm"),
-        treatment=_resolve_treatment(c, treatment_lookup or {}),
-        mutations_raw=_text(c, "cntn_cf_mutations"),
-        strain=_text(c, "cntn_cf_strain"),
-        sex=_text(c, "cntn_cf_sex"),
-        project=_text(c, "cntn_cf_project"),
-    )
+    parent = int(_val(c, slims_spec.EXPERIMENT_RUN.parent_fk)) or experiment_pk
+    return {
+        "pk": record.pk(),
+        "experiment_pk": parent,
+        "name": _text(c, slims_spec.EXPERIMENT_RUN.name),
+        "slims_link": slims_spec.run_link(base_url, record.pk()),
+        "raw_json": json.dumps(raw_dump(record)),
+    }
 
 
-def to_assay(record: Any) -> Assay:
+def runstep_row(
+    record: Any,
+    base_url: str,
+    experiment_by_run: dict[int, int] | None = None
+) -> dict[str, Any]:
     c = _columns(record)
-    return Assay(
-        slims_id=_text(c, "cntn_id") or str(record.pk()),
-        assay_type=_disp(c, "cntn_fk_contentType") or _text(c, "cntn_fk_contentType"),
-        mammoid=_text(c, "cntn_cf_mammoid"),
-        mouse_exp_nb=_text(c, "cntn_cf_mouseExpNb"),
-        organ=_text(c, "cntn_cf_organ"),
-        original_content=_disp(c, "cntn_fk_originalContent"),
-    )
+    run_pk = int(_val(c, slims_spec.EXPERIMENT_RUN_STEP.parent_fk))
+    return {
+        "pk": record.pk(),
+        "exp_run_pk": run_pk,
+        # Denormalised so "all content in experiment X" is one indexed lookup
+        # instead of a three-table join.
+        "experiment_pk": (experiment_by_run or {}).get(run_pk),
+        "name": _text(c, slims_spec.EXPERIMENT_RUN_STEP.name),
+        "slims_link": slims_spec.runstep_link(base_url, record.pk()),
+        "raw_json": json.dumps(raw_dump(record)),
+    }
 
 
-def _resolve_treatment(cols: dict[str, dict], lookup: dict[int, str]) -> str | None:
-    """Treatment is an FK (list of Treatment content pks). Prefer the resolved
-    displayValue; otherwise map pks through the Treatment lookup."""
-    disp = _disp(cols, "cntn_cf_fk_treatment")
-    if disp:
-        return str(disp)
-    raw = _val(cols, "cntn_cf_fk_treatment")
-    if not raw:
+def content_link_row(
+    record: Any,
+    run_by_step: dict[int, int],
+    experiment_by_run: dict[int, int],
+) -> dict[str, Any] | None:
+    """One ExperimentRunStepContent row -> the provenance edge.
+
+    Returns None when the link has no content pk (an empty step slot).
+    """
+    c = _columns(record)
+    content_pk = int(_val(c, slims_spec.RUN_STEP_CONTENT_FK_CONTENT))
+    if content_pk is None:
         return None
-    pks = raw if isinstance(raw, list) else [raw]
-    labels = [lookup.get(pk) for pk in pks]
-    labels = [x for x in labels if x]
-    return ", ".join(labels) or None
+    runstep_pk = int(_val(c, slims_spec.RUN_STEP_CONTENT.parent_fk))
+    run_pk = run_by_step.get(runstep_pk)
+    return {
+        "runstep_content_pk": record.pk(),
+        "runstep_pk": runstep_pk,
+        "exp_run_pk": run_pk,
+        "experiment_pk": experiment_by_run.get(run_pk),
+        "content_pk": content_pk,
+    }
 
 
-def build_treatment_lookup(treatment_records: list[Any]) -> dict[int, str]:
-    """pk -> best label for Treatment content, used to resolve mouse treatments."""
-    lookup: dict[int, str] = {}
-    for r in treatment_records:
-        c = _columns(r)
-        label = (
-            _text(c, "cntn_cf_Name") or _text(c, "cntn_id") or _text(c, "cntn_barCode")
-        )
-        if label:
-            lookup[r.pk()] = label
-    return lookup
-
-
-# --- linking + derived fields ------------------------------------------------
-
-
-def normalize_mammoid(value: str | None) -> str | None:
-    """Normalize the join key for equality matching. Conservative: trim + upper.
-    Mouse mammoids are free text, so many will simply not match a tumor -- that
-    is expected and surfaced as 'unmatched' in the UI, not silently dropped."""
-    if not value:
-        return None
-    return value.strip().upper() or None
-
-
-def _index_by_mammoid(items: list[Any]) -> dict[str, list[Any]]:
-    index: dict[str, list[Any]] = {}
-    for it in items:
-        key = normalize_mammoid(it.mammoid)
-        if key:
-            index.setdefault(key, []).append(it)
-    return index
-
-
-def derive_tumor_fields(
-    tumors: list[Tumor], mice: list[Mouse], assays: list[Assay]
-) -> None:
-    """Populate rna_sequenced / dna_sequenced / n_experiments / treatments on
-    each tumor in place, by matching linked mice & assays on the mammoid key."""
-    mice_by = _index_by_mammoid(mice)
-    assays_by = _index_by_mammoid(assays)
-    for t in tumors:
-        key = normalize_mammoid(t.mammoid)
-        linked_assays = assays_by.get(key, []) if key else []
-        linked_mice = mice_by.get(key, []) if key else []
-
-        assay_types = {a.assay_type for a in linked_assays}
-        t.rna_sequenced = "Tissue for RNA" in assay_types
-        t.dna_sequenced = "DNA" in assay_types  # 0 records today -> always False
-
-        exp_nbs = {a.mouse_exp_nb for a in linked_assays if a.mouse_exp_nb}
-        exp_nbs |= {m.mouse_exp_nb for m in linked_mice if m.mouse_exp_nb}
-        t.n_experiments = len(exp_nbs)
-
-        t.treatments = sorted({m.treatment for m in linked_mice if m.treatment})
+def content_row(
+    record: Any,
+    base_url: str,
+) -> dict[str, Any]:
+    """A Content record: promoted columns + the full raw dump."""
+    c = _columns(record)
+    row: dict[str, Any] = {"pk": record.pk()}
+    for db_col, slims_col in PROMOTED_CONTENT_COLUMNS.items():
+        row[db_col] = label(c, slims_col)
+    row["slims_link"] = slims_spec.content_link(base_url, record.pk())
+    row["raw_json"] = json.dumps(raw_dump(record))
+    return row

@@ -87,6 +87,19 @@ table { border-collapse: collapse; width: 100%; background: var(--surface-1); }
 th, td { text-align: left; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 th { color: var(--text-secondary); font-weight: 600; position: sticky; top: 0; background: var(--surface-1); }
 tbody tr:hover { background: var(--accent-fill); }
+/* cap wide columns without freezing the auto layout */
+.table-wrap td .cell {
+  display: block;
+  max-width: 25ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* per-column overrides */
+.table-wrap .col-name .cell    { max-width: 25ch; }
+.table-wrap .col-mammoid .cell { max-width: 14ch; }
+.table-wrap .col-slims_id .cell { max-width: none; }
 .pager { display: flex; gap: 1rem; align-items: center; justify-content: center; margin: 0.8rem 0; }
 
 /* detail */
@@ -96,3 +109,15 @@ tbody tr:hover { background: var(--accent-fill); }
 .fields dd { margin: 0; }
 .fields.raw { max-height: 320px; overflow: auto; }
 details summary { cursor: pointer; color: var(--text-secondary); }
+
+/* content-type badge + outbound SLIMS link (detail header) */
+.type-badge {
+  font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--accent); background: var(--accent-fill); border-radius: 999px;
+  padding: 0.1rem 0.55rem; vertical-align: middle; margin: 0 0.3rem;
+}
+.slims-out { font-size: 0.8rem; font-weight: 500; margin-left: 0.4rem; }
+
+/* clickable summary cards */
+.card.link { display: block; color: inherit; }
+.card.link:hover { border-color: var(--accent); text-decoration: none; }

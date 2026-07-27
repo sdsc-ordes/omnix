@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}omnix — {{ row['slims_id'] }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="{{ url_for('entity_list', slug=kind.slug) }}">← {{ kind.title }}</a></p>
+<h1>
+  {{ row['slims_id'] }}
+  <span class="type-badge">{{ row['type'] }}</span>
+  <span class="sub">{{ row['mammoid'] or '(no sample id)' }}</span>
+  {% if row['slims_link'] %}<a class="slims-out" href="{{ row['slims_link'] }}" target="_blank" rel="noopener">SLIMS ↗</a>{% endif %}
+</h1>
+
+<section class="panel">
+  <h2>Fields</h2>
+  <dl class="fields">
+    {% for f in kind.fields %}
+      {% if f.key not in ('slims_id',) %}
+        <dt>{{ f.label }}</dt><dd>{{ fmt_cell(kind, f.key, row[f.key]) }}</dd>
+      {% endif %}
+    {% endfor %}
+  </dl>
+</section>
+
+<section class="panel">
+  <h2>Provenance <span class="sub">{{ provenance|length }} link{{ '' if provenance|length == 1 else 's' }}</span></h2>
+  {% if provenance %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Experiment</th><th>Run</th><th>Run step</th></tr></thead>
+      <tbody>
+        {% for p in provenance %}
+          <tr>
+            <td>{{ p['experiment_name'] or p['experiment_pk'] }}</td>
+            <td>{{ p['exp_run_name'] or p['exp_run_pk'] }}</td>
+            <td>{{ p['runstep_name'] or p['runstep_pk'] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <p class="muted">No experiment link recorded for this content.</p>
+  {% endif %}
+</section>
+
+{% include "_raw.html" %}
+{% endblock %}

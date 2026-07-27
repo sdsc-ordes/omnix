@@ -1,16 +1,19 @@
 {% extends "base.html" %}
 {% block title %}omnix — dashboard{% endblock %}
 {% block content %}
-<h1>Xenograft snapshot</h1>
+<h1>Xenograft Snapshot</h1>
 
 {% if meta %}
   <p class="meta">
-    Snapshot from <code>{{ meta.source_url }}</code>,
-    taken {{ meta.created_at }}.
+    Project <strong>{{ meta.project_name or meta.project_pk }}</strong>
+    from <code>{{ meta.source_url }}</code>.
   </p>
+
   <section class="cards">
-    {% for kind, n in meta.counts.items() %}
-      <div class="card"><div class="num">{{ n }}</div><div class="lbl">{{ kind }}s</div></div>
+    {% for k in kinds %}
+      <a class="card link" href="{{ url_for('entity_list', slug=k.slug) }}">
+        <div class="num">{{ stats.kind_counts[k.slug] }}</div><div class="lbl">{{ k.title }}</div>
+      </a>
     {% endfor %}
   </section>
 
@@ -40,7 +43,7 @@
 
     <div class="breakdowns">
       {{ breakdown("Tumors by type", stats.tumor_types) }}
-      {{ breakdown("Mice by generation", stats.mouse_generations) }}
+      {{ breakdown("Mice by strain", stats.mouse_strains) }}
       {{ breakdown("Assays by type", stats.assay_types) }}
     </div>
   </section>

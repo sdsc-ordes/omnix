@@ -16,7 +16,9 @@ carries a human-readable ``title`` ("Status"), a resolved ``displayValue``
 
 import argparse
 
+from slims.criteria import not_equals, equals
 from . import store
+
 
 # `serve` reads only the local snapshot, so the SLIMS/HTTP stack (`requests`,
 # `slims`, and the client/extract/snapshot modules) is imported lazily inside the
@@ -43,23 +45,29 @@ def describe_record(record) -> None:
     print()
 
 
-def cmd_dump(_args) -> None:
+def cmd_dump(args) -> None:
     import requests  # noqa: PLC0415 (lazy: pulls in the ssl-dependent slims stack)
 
+    from . import slims_spec  # noqa: PLC0415
     from .client import connect, load_config  # noqa: PLC0415
-    from .extract import CONTENT_TYPES, fetch_all  # noqa: PLC0415
 
     config = load_config()
     slims = connect(config)
+    tables = [
+        slims_spec.EXPERIMENT.table, slims_spec.EXPERIMENT_RUN.table,
+        slims_spec.EXPERIMENT_RUN_STEP.table, slims_spec.RUN_STEP_CONTENT.table,
+        slims_spec.CONTENT.table,
+    ]
     try:
-        for label, pk in CONTENT_TYPES.items():
-            print(f"--- {label} (cntn_fk_contentType={pk}) ---\n")
-            records = fetch_all(slims, pk, limit=5)
+        for table in tables:
+            print(f"--- {table} ---\n")
+            records = slims.fetch(table, not_equals("pk", ""), start=0, end=args.n)
             if not records:
                 print("  (no records)\n")
                 continue
             for record in records:
                 describe_record(record)
+            break
     except requests.exceptions.RequestException as error:
         raise SystemExit(
             f"Could not reach SLIMS at {config['SLIMS_URL']!r}: {error}\n"
@@ -95,10 +103,14 @@ def cmd_serve(args) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="omnix", description="SLIMS xenograft browser.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Log the walk.")
     sub = parser.add_subparsers(dest="command")
 
     p_snap = sub.add_parser("snapshot", help="Pull SLIMS into the local SQLite snapshot.")
     p_snap.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
+    p_snap.add_argument("--project", default="Human Primary Tumor Cells and BRCA MINDs", help="Project name (prjc_name).")
+    p_snap.add_argument("--project-pk", default=76, type=int, help="Skip the name lookup.")
+
     p_snap.add_argument("--limit", type=int, default=None, help="Cap rows per content type (dev).")
     p_snap.set_defaults(func=cmd_snapshot)
 
@@ -110,6 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.set_defaults(func=cmd_serve)
 
     p_dump = sub.add_parser("dump", help="Print raw Content records (debugging).")
+    p_dump.add_argument("-n", type=int, default=1, help="Rows per table.")
     p_dump.set_defaults(func=cmd_dump)
 
     return parser

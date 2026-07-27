@@ -11,9 +11,9 @@
   <header class="topbar">
     <nav>
       <a href="{{ url_for('dashboard') }}" class="brand">omnix</a>
-      <a href="{{ url_for('entity_list', slug='tumors') }}">Tumors</a>
-      <a href="{{ url_for('entity_list', slug='mice') }}">Mice</a>
-      <a href="{{ url_for('entity_list', slug='assays') }}">Assays</a>
+      {% for k in kinds %}
+        <a href="{{ url_for('entity_list', slug=k.slug) }}">{{ k.title }}</a>
+      {% endfor %}
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>

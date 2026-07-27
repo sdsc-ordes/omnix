@@ -8,50 +8,153 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
-from .models import Assay, Mouse, Tumor
+from . import content_types
 
 DEFAULT_DB = Path(".omnix/snapshot.db")
+DEV_DB = Path(".omnix/snapshot_dev.db")
 
-# Whitelisted filter columns per entity (guards against SQL injection via names).
-FILTER_COLUMNS = {
-    "tumor": ["tumor_type", "subtype", "grade", "her2", "mammoid", "rna_sequenced"],
-    "mouse": ["generation", "generation_mm", "strain", "sex", "project", "treatment", "mammoid"],
-    "assay": ["assay_type", "organ", "mammoid"],
+
+# --- content columns promoted out of raw_json into real SQL columns ----------
+# db column -> SLIMS column. Add a line and the schema, the writer and the UI
+# filter whitelist all pick it up; no other file needs to change.
+PROMOTED_CONTENT_COLUMNS: dict[str, str] = {
+    "slims_id": "cntn_barCode",
+    "content_type": "cntn_fk_contentType",
+    "mammoid": "cntn_cf_mammoid",
+    "original_content": "cntn_fk_originalContent",
 }
 
-SCHEMA = """
-CREATE TABLE tumor (
-    slims_id TEXT PRIMARY KEY, mammoid TEXT, name TEXT, tumor_type TEXT,
-    subtype TEXT, grade TEXT, er TEXT, pr TEXT, her2 TEXT, ki67 TEXT,
-    rna_sequenced INTEGER, dna_sequenced INTEGER, n_experiments INTEGER,
-    treatments TEXT, raw_json TEXT
+
+_CORE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS experiment (
+    pk INTEGER PRIMARY KEY,
+    project_pk INTEGER,
+    name TEXT,
+    slims_link TEXT,
+    raw_json TEXT
 );
-CREATE TABLE mouse (
-    slims_id TEXT PRIMARY KEY, mammoid TEXT, mouse_exp_nb TEXT, generation TEXT,
-    generation_mm TEXT, treatment TEXT, mutations_raw TEXT, strain TEXT,
-    sex TEXT, project TEXT, raw_json TEXT
+
+CREATE TABLE IF NOT EXISTS exp_run (
+    pk INTEGER PRIMARY KEY,
+    experiment_pk INTEGER,
+    name TEXT,
+    slims_link TEXT,
+    raw_json TEXT
 );
-CREATE TABLE assay (
-    slims_id TEXT PRIMARY KEY, assay_type TEXT, mammoid TEXT, mouse_exp_nb TEXT,
-    organ TEXT, original_content TEXT, raw_json TEXT
+
+CREATE TABLE IF NOT EXISTS exp_runstep (
+    pk INTEGER PRIMARY KEY,
+    exp_run_pk INTEGER,
+    experiment_pk INTEGER,
+    name TEXT,
+    sequence INTEGER,
+    slims_link TEXT,
+    raw_json TEXT
 );
-CREATE TABLE snapshot_meta (
-    created_at TEXT, source_url TEXT, counts_json TEXT
+
+-- The provenance path.
+CREATE TABLE IF NOT EXISTS runstep_content (
+    runstep_content_pk INTEGER PRIMARY KEY,
+    runstep_pk INTEGER NOT NULL,
+    exp_run_pk INTEGER,
+    experiment_pk INTEGER,
+    content_pk INTEGER NOT NULL
 );
-CREATE INDEX idx_tumor_mammoid ON tumor(mammoid);
-CREATE INDEX idx_mouse_mammoid ON mouse(mammoid);
-CREATE INDEX idx_assay_mammoid ON assay(mammoid);
-CREATE INDEX idx_assay_type ON assay(assay_type);
-CREATE INDEX idx_tumor_type ON tumor(tumor_type);
-CREATE INDEX idx_mouse_generation ON mouse(generation);
+
+CREATE TABLE IF NOT EXISTS snapshot_meta (
+    source_url TEXT,
+    project_pk INTEGER,
+    project_name TEXT,
+    counts_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_exp_project    ON experiment(project_pk);
+CREATE INDEX IF NOT EXISTS idx_run_experiment ON exp_run(experiment_pk);
+CREATE INDEX IF NOT EXISTS idx_step_run       ON exp_runstep(exp_run_pk);
+CREATE INDEX IF NOT EXISTS idx_step_exp       ON exp_runstep(experiment_pk);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_link_pair ON runstep_content(runstep_pk, content_pk);
+CREATE INDEX IF NOT EXISTS idx_link_content    ON runstep_content(content_pk);
+CREATE INDEX IF NOT EXISTS idx_link_exp        ON runstep_content(experiment_pk);
+CREATE INDEX IF NOT EXISTS idx_link_run        ON runstep_content(exp_run_pk);
 """
 
 
-def connect(db_path: Path | str = DEFAULT_DB, *, read_only: bool = False) -> sqlite3.Connection:
+_PROVENANCE_VIEW = """
+CREATE VIEW IF NOT EXISTS content_provenance AS
+SELECT
+    c.pk            AS content_pk,
+    c.slims_id      AS slims_id,
+    c.content_type  AS content_type,
+    l.runstep_pk    AS runstep_pk,
+    s.name          AS runstep_name,
+    s.slims_link    AS runstep_link,
+    l.exp_run_pk    AS exp_run_pk,
+    r.name          AS exp_run_name,
+    r.slims_link    AS exp_run_link,
+    l.experiment_pk AS experiment_pk,
+    e.name          AS experiment_name,
+    e.slims_link    AS experiment_link
+FROM runstep_content l
+LEFT JOIN content     c ON c.pk = l.content_pk
+LEFT JOIN exp_runstep s ON s.pk = l.runstep_pk
+LEFT JOIN exp_run     r ON r.pk = l.exp_run_pk
+LEFT JOIN experiment  e ON e.pk = l.experiment_pk;
+"""
+
+
+def _content_schema() -> str:
+    cols = ",\n    ".join(f"{c} TEXT" for c in PROMOTED_CONTENT_COLUMNS)
+    idx = "\n".join(
+        f"CREATE INDEX IF NOT EXISTS idx_content_{c} ON content({c});"
+        for c in ("content_type", "slims_id", "mammoid")
+        if c in PROMOTED_CONTENT_COLUMNS
+    )
+    return f"""
+CREATE TABLE IF NOT EXISTS content (
+    pk INTEGER PRIMARY KEY,
+    {cols},
+    slims_link TEXT,
+    raw_json TEXT
+);
+{idx}
+"""
+
+
+def _type_view_sql(
+    kind: content_types.Kind,
+) -> str:
+    """CREATE VIEW for one Kind, projecting `content` into typed columns."""
+    base = [f"c.{col} AS {alias}" for alias, col in content_types.BASE_COLUMNS.items()]
+    # a field may re-declare a base column (e.g. slims_id); keep the field's def
+    # and drop the base one so the alias is not selected twice.
+    field_keys = {f.key for f in kind.fields}
+    base = [b for b in base if b.split(" AS ")[-1] not in field_keys]
+    projected = [f.sql_expr() for f in kind.fields]
+    select = ",\n    ".join(base + projected)
+    return (
+        f"CREATE VIEW IF NOT EXISTS {kind.view} AS\nSELECT\n    {select}\n"
+        f"FROM content c\nWHERE {kind.where_clause()};"
+    )
+
+
+def build_type_views(
+    conn: sqlite3.Connection,
+) -> None:
+    """(Re)create the tumor/mouse/assay views over the content table."""
+    for kind in content_types.ALL_KINDS:
+        conn.execute(f"DROP VIEW IF EXISTS {kind.view}")
+        conn.execute(_type_view_sql(kind))
+    conn.commit()
+
+
+def connect(
+    db_path: Path | str = DEV_DB,
+    *,
+    read_only: bool = False,
+) -> sqlite3.Connection:
     path = Path(db_path)
     if read_only:
         conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
@@ -62,73 +165,114 @@ def connect(db_path: Path | str = DEFAULT_DB, *, read_only: bool = False) -> sql
     return conn
 
 
+def init_schema(conn: sqlite3.Connection) -> None:
+    conn.executescript(_CORE_SCHEMA + _content_schema() + _PROVENANCE_VIEW)
+    conn.commit()
+
+
+
 # --- writing -----------------------------------------------------------------
 
-
-def write_snapshot(  # noqa: PLR0913 (one row per entity list + source + raw)
+def _insert_many(
     conn: sqlite3.Connection,
-    tumors: list[Tumor],
-    mice: list[Mouse],
-    assays: list[Assay],
+    table: str,
+    rows: Sequence[dict[str, Any]],
+) -> int:
+    """INSERT OR REPLACE, with the column list built from the row dicts.
+
+    All rows must share the same keys.
+    """
+    if not rows:
+        return 0
+    cols = list(rows[0])
+    placeholders = ",".join(f":{c}" for c in cols)
+    sql = f"INSERT OR REPLACE INTO {table} ({','.join(cols)}) VALUES ({placeholders})"
+    conn.executemany(sql, rows)
+    return len(rows)
+
+
+def write_rows(
+    conn: sqlite3.Connection,
+    rows: Sequence[dict[str, Any]],
+    table: str,
+) -> int:
+    n = _insert_many(conn, table, rows)
+    conn.commit()
+    return n
+
+
+def write_meta(
+    conn: sqlite3.Connection,
     source_url: str,
-    raw_by_id: dict[str, dict] | None = None,
+    project_pk: int | None,
+    project_name: str | None,
 ) -> None:
-    raw_by_id = raw_by_id or {}
-    conn.executescript(SCHEMA)
-
-    conn.executemany(
-        "INSERT OR REPLACE INTO tumor VALUES "
-        "(:slims_id,:mammoid,:name,:tumor_type,:subtype,:grade,:er,:pr,:her2,:ki67,"
-        ":rna_sequenced,:dna_sequenced,:n_experiments,:treatments,:raw_json)",
-        [
-            {
-                **t.model_dump(),
-                "rna_sequenced": int(t.rna_sequenced),
-                "dna_sequenced": int(t.dna_sequenced),
-                "treatments": json.dumps(t.treatments),
-                "raw_json": json.dumps(raw_by_id.get(t.slims_id, {})),
-            }
-            for t in tumors
-        ],
-    )
-    conn.executemany(
-        "INSERT OR REPLACE INTO mouse VALUES "
-        "(:slims_id,:mammoid,:mouse_exp_nb,:generation,:generation_mm,:treatment,"
-        ":mutations_raw,:strain,:sex,:project,:raw_json)",
-        [{**m.model_dump(), "raw_json": json.dumps(raw_by_id.get(m.slims_id, {}))} for m in mice],
-    )
-    conn.executemany(
-        "INSERT OR REPLACE INTO assay VALUES "
-        "(:slims_id,:assay_type,:mammoid,:mouse_exp_nb,:organ,:original_content,:raw_json)",
-        [{**a.model_dump(), "raw_json": json.dumps(raw_by_id.get(a.slims_id, {}))} for a in assays],
-    )
-
-    counts = {
-        "tumor": len(tumors),
-        "mouse": len(mice),
-        "assay": len(assays),
-    }
     conn.execute(
-        "INSERT INTO snapshot_meta VALUES (?,?,?)",
-        (datetime.now(timezone.utc).isoformat(timespec="seconds"), source_url, json.dumps(counts)),
+        "INSERT INTO snapshot_meta (source_url, project_pk, project_name, counts_json)"
+        " VALUES (?,?,?,?)",
+        (
+            source_url,
+            project_pk,
+            project_name,
+            json.dumps(counts(conn)),
+        ),
     )
     conn.commit()
 
 
+
 # --- reading -----------------------------------------------------------------
+
+def all_linked_content_pks(conn: sqlite3.Connection) -> list[int]:
+    rows = conn.execute("SELECT DISTINCT content_pk FROM runstep_content").fetchall()
+    return [r[0] for r in rows]
+
+
+def counts(conn: sqlite3.Connection) -> dict[str, int]:
+    out = {}
+    for table in ("experiment", "exp_run", "exp_runstep", "runstep_content", "content"):
+        try:
+            out[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        except sqlite3.OperationalError:
+            out[table] = 0
+    return out
 
 
 def get_meta(conn: sqlite3.Connection) -> dict[str, Any]:
-    row = conn.execute("SELECT * FROM snapshot_meta ORDER BY created_at DESC LIMIT 1").fetchone()
+    print("test")
+    try:
+        row = conn.execute(
+            "SELECT * FROM snapshot_meta ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return {}
     if not row:
         return {}
-    return {"created_at": row["created_at"], "source_url": row["source_url"], "counts": json.loads(row["counts_json"])}
+    return {
+        "source_url": row["source_url"],
+        "project_pk": row["project_pk"],
+        "project_name": row["project_name"],
+        "counts": json.loads(row["counts_json"]),
+    }
 
 
-def _where(entity: str, filters: dict[str, str]) -> tuple[str, list]:
+
+
+# --- typed-view queries (used by the web layer) ------------------------------
+
+
+def _kind(view: str) -> content_types.Kind:
+    kind = content_types.BY_VIEW.get(view)
+    if kind is None:
+        raise ValueError(f"unknown entity {view!r}")
+    return kind
+
+
+def _where(kind: content_types.Kind, filters: dict[str, str]) -> tuple[str, list]:
+    allowed = set(kind.filter_columns())
     clauses, params = [], []
     for col, val in filters.items():
-        if col not in FILTER_COLUMNS.get(entity, []) or val in (None, ""):
+        if col not in allowed or val in (None, ""):
             continue
         clauses.append(f"{col} LIKE ?")
         params.append(f"%{val}%")
@@ -143,26 +287,26 @@ def list_entity(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[sqlite3.Row], int]:
-    """Return (page rows, total matching count) for a filtered entity list."""
-    if entity not in FILTER_COLUMNS:
-        raise ValueError(f"unknown entity {entity!r}")
-    where, params = _where(entity, filters or {})
-    total = conn.execute(f"SELECT COUNT(*) FROM {entity}{where}", params).fetchone()[0]
+    """(page rows, total matching count) for a filtered typed view."""
+    kind = _kind(entity)
+    where, params = _where(kind, filters or {})
+    total = conn.execute(f"SELECT COUNT(*) FROM {kind.view}{where}", params).fetchone()[0]
     rows = conn.execute(
-        f"SELECT * FROM {entity}{where} ORDER BY slims_id LIMIT ? OFFSET ?",
+        f"SELECT * FROM {kind.view}{where} ORDER BY slims_id LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
     return rows, total
 
 
-def distinct_values(conn: sqlite3.Connection, entity: str, column: str, cap: int = 40) -> list[str]:
-    """Sorted distinct non-null values for a filter column, or [] if too many
-    (caller then renders a free-text input instead of a dropdown)."""
-    if entity not in FILTER_COLUMNS or column not in FILTER_COLUMNS[entity]:
+def distinct_values(conn: sqlite3.Connection, entity: str, column: str, cap: int = 2000) -> list[str]:
+    """Sorted distinct values for a filter column, or [] if too many (caller
+    then renders a free-text input instead of a dropdown)."""
+    kind = _kind(entity)
+    if column not in kind.filter_columns():
         return []
     rows = conn.execute(
-        f"SELECT DISTINCT {column} v FROM {entity} "
-        f"WHERE v IS NOT NULL AND v != '' ORDER BY v LIMIT ?",
+        f"SELECT DISTINCT {column} v FROM {kind.view} "
+        "WHERE v IS NOT NULL AND v != '' ORDER BY v LIMIT ?",
         (cap + 1,),
     ).fetchall()
     if len(rows) > cap:
@@ -170,17 +314,33 @@ def distinct_values(conn: sqlite3.Connection, entity: str, column: str, cap: int
     return [str(r["v"]) for r in rows]
 
 
-def get_one(conn: sqlite3.Connection, entity: str, slims_id: str) -> sqlite3.Row | None:
-    if entity not in FILTER_COLUMNS:
-        raise ValueError(f"unknown entity {entity!r}")
-    return conn.execute(f"SELECT * FROM {entity} WHERE slims_id = ?", (slims_id,)).fetchone()
+def get_content(conn: sqlite3.Connection, content_pk: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM content WHERE pk = ?", (content_pk,)).fetchone()
 
 
-def linked_to_tumor(conn: sqlite3.Connection, mammoid: str | None) -> dict[str, list[sqlite3.Row]]:
-    """Mice & assays sharing a tumor's (normalized) mammoid -- the drill-down."""
+def get_one_in_view(conn: sqlite3.Connection, entity: str, content_pk: int) -> sqlite3.Row | None:
+    kind = _kind(entity)
+    return conn.execute(f"SELECT * FROM {kind.view} WHERE pk = ?", (content_pk,)).fetchone()
+
+
+def provenance_for_content(conn: sqlite3.Connection, content_pk: int) -> list[sqlite3.Row]:
+    """Every experiment / run / step a content record was used in."""
+    return conn.execute(
+        "SELECT * FROM content_provenance WHERE content_pk = ? "
+        "ORDER BY experiment_name, exp_run_pk, runstep_pk",
+        (content_pk,),
+    ).fetchall()
+
+
+def linked_by_mammoid(
+    conn: sqlite3.Connection, mammoid: str | None, exclude_pk: int | None = None
+) -> list[sqlite3.Row]:
+    """Other content sharing a sample id -- the mammoid drill-down, now over the
+    single content table. Content type tells the caller what each row is."""
     if not mammoid:
-        return {"mice": [], "assays": []}
-    key = mammoid.strip()
-    mice = conn.execute("SELECT * FROM mouse WHERE mammoid = ? COLLATE NOCASE", (key,)).fetchall()
-    assays = conn.execute("SELECT * FROM assay WHERE mammoid = ? COLLATE NOCASE", (key,)).fetchall()
-    return {"mice": mice, "assays": assays}
+        return []
+    return conn.execute(
+        "SELECT pk, slims_id, content_type, mammoid, slims_link FROM content "
+        "WHERE mammoid = ? COLLATE NOCASE AND pk IS NOT ? ORDER BY content_type, slims_id",
+        (mammoid.strip(), exclude_pk),
+    ).fetchall()
