@@ -1,9 +1,15 @@
-"""Typed domain models for the xenograft export.
+"""Reference shapes for the xenograft data model -- not used at runtime.
 
-These mirror the target shape in ``docs/xenograft-data-model.md``. Fields are
-optional wherever the underlying SLIMS custom field is sparsely populated (see
-the coverage table in that doc). The raw SLIMS column dump is kept separately by
-the store, not on these models -- these stay clean for JSON export.
+This was made before the move to a generic ``content`` table projected into typed SQL
+views (see ``content_types`` and ``store.build_type_views``). Nothing imports
+them: the ETL writes row dicts straight from ``transform``, and the web layer
+reads the views. ``ContentLinkChain`` is the exception worth reading -- it
+documents the provenance edge now persisted as the ``runstep_content`` table.
+
+Kept as a sketch of the intended domain structure and of which SLIMS fields
+map onto what. Expect drift: field names and derived values here are not
+guaranteed to match the current views, and the ``docs/xenograft-data-model.md``
+coverage table they were written against may also be out of date.
 """
 
 from __future__ import annotations
