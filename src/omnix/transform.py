@@ -41,16 +41,8 @@ def _val(
     return col.get("value") if col else None
 
 
-def _disp(
-    cols: dict[str, dict],
-    name: str | None,
-) -> Any:
-    """Best human label for a column: joined multi-fk, multi-fk, single fk, raw."""
-    if name is None:
-        return None
-    col = cols.get(name)
-    if not col:
-        return None
+def _best_display(col: dict) -> Any:
+    """Best human label for ONE column dict: joined multi-fk, multi-fk, single fk."""
     joined = col.get("joinedDisplayValue")
     if joined not in (None, ""):
         return joined
@@ -60,6 +52,15 @@ def _disp(
     disp = col.get("displayValue")
     if disp not in (None, ""):
         return disp
+    return None
+
+
+def _disp(cols: dict[str, dict], name: str | None) -> Any:
+    """Best human label for a named column in a record's column map."""
+    if name is None:
+        return None
+    col = cols.get(name)
+    return _best_display(col) if col else None
 
 
 def raw_dump(
@@ -70,8 +71,10 @@ def raw_dump(
     out: dict[str, Any] = {}
     for c in record.json_entity["columns"]:
         name, value = c.get("name"), c.get("value")
-        if name and value not in (None, "", []):
-            out[name] = c.get("displayValue") or value
+        if not name or value in (None, "", []):
+            continue
+        display = _best_display(c)
+        out[name] = display if display is not None else value
     return out
 
 

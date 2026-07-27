@@ -14,7 +14,6 @@ from typing import Any, Sequence
 from . import content_types
 
 DEFAULT_DB = Path(".omnix/snapshot.db")
-DEV_DB = Path(".omnix/snapshot_dev.db")
 
 
 # --- content columns promoted out of raw_json into real SQL columns ----------
@@ -151,7 +150,7 @@ def build_type_views(
 
 
 def connect(
-    db_path: Path | str = DEV_DB,
+    db_path: Path | str = DEFAULT_DB,
     *,
     read_only: bool = False,
 ) -> sqlite3.Connection:
