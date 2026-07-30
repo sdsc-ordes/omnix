@@ -116,7 +116,6 @@ details summary { cursor: pointer; color: var(--text-secondary); }
   color: var(--accent); background: var(--accent-fill); border-radius: 999px;
   padding: 0.1rem 0.55rem; vertical-align: middle; margin: 0 0.3rem;
 }
-.slims-out { font-size: 0.8rem; font-weight: 500; margin-left: 0.4rem; }
 
 /* clickable summary cards */
 .card.link { display: block; color: inherit; }

@@ -5,7 +5,6 @@ across modules.
 """
 
 from __future__ import annotations
-
 from dataclasses import dataclass
 
 
@@ -19,7 +18,7 @@ class TableSpec:
     name: str | None = None
 
 
-# Project -> Experiment -> Run -> RunStep -> (link) -> Content ---
+# Project -> Experiment -> Run -> RunStep -> RunStepContent <---> Content
 
 PROJECT = TableSpec(
     table="Project",
@@ -60,24 +59,3 @@ CONTENT = TableSpec(
     pk="cntn_pk",
     name="cntp_name",
 )
-
-
-# --- deep links --------------------------------------------------------------
-def _link(base_url: str, route: str, pk: int) -> str:
-    return f"{base_url.rstrip('/')}/#/{route}/{pk}"
-
-
-def content_link(base_url: str, pk: int) -> str:
-    return _link(base_url, "Content", pk)
-
-
-def experiment_link(base_url: str, pk: int) -> str:
-    return _link(base_url, "Experiment", pk)
-
-
-def run_link(base_url: str, pk: int) -> str:
-    return _link(base_url, "ExperimentRun", pk)
-
-
-def runstep_link(base_url: str, pk: int) -> str:
-    return _link(base_url, "ExperimentRunStep", pk)

@@ -56,7 +56,6 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
     @app.route("/")
     def dashboard():
         conn = get_conn()
-        print(store.get_meta(conn))
         return render_template(
             "dashboard.html", meta=store.get_meta(conn), stats=charts.summary(conn)
         )

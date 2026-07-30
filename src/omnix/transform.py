@@ -101,25 +101,21 @@ def label(cols: dict[str, dict], name: str | None) -> str | None:
 
 # --- record -> row -----------------------------------------------------------
 
-
 def experiment_row(
     record: Any,
     project_pk: int,
-    base_url: str,
 ) -> dict[str, Any]:
     c = _columns(record)
     return {
         "pk": record.pk(),
         "project_pk": project_pk,
         "name": _text(c, slims_spec.EXPERIMENT.name),
-        "slims_link": slims_spec.experiment_link(base_url, record.pk()),
         "raw_json": json.dumps(raw_dump(record)),
     }
 
 
 def run_row(
     record: Any,
-    base_url: str,
     experiment_pk: int | None = None,
 ) -> dict[str, Any]:
     """`experiment_pk` is read off the record itself; pass it only as a fallback
@@ -130,14 +126,12 @@ def run_row(
         "pk": record.pk(),
         "experiment_pk": parent,
         "name": _text(c, slims_spec.EXPERIMENT_RUN.name),
-        "slims_link": slims_spec.run_link(base_url, record.pk()),
         "raw_json": json.dumps(raw_dump(record)),
     }
 
 
 def runstep_row(
     record: Any,
-    base_url: str,
     experiment_by_run: dict[int, int] | None = None
 ) -> dict[str, Any]:
     c = _columns(record)
@@ -149,7 +143,6 @@ def runstep_row(
         # instead of a three-table join.
         "experiment_pk": (experiment_by_run or {}).get(run_pk),
         "name": _text(c, slims_spec.EXPERIMENT_RUN_STEP.name),
-        "slims_link": slims_spec.runstep_link(base_url, record.pk()),
         "raw_json": json.dumps(raw_dump(record)),
     }
 
@@ -180,13 +173,11 @@ def content_link_row(
 
 def content_row(
     record: Any,
-    base_url: str,
 ) -> dict[str, Any]:
     """A Content record: promoted columns + the full raw dump."""
     c = _columns(record)
     row: dict[str, Any] = {"pk": record.pk()}
     for db_col, slims_col in PROMOTED_CONTENT_COLUMNS.items():
         row[db_col] = label(c, slims_col)
-    row["slims_link"] = slims_spec.content_link(base_url, record.pk())
     row["raw_json"] = json.dumps(raw_dump(record))
     return row

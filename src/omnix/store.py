@@ -32,7 +32,6 @@ CREATE TABLE IF NOT EXISTS experiment (
     pk INTEGER PRIMARY KEY,
     project_pk INTEGER,
     name TEXT,
-    slims_link TEXT,
     raw_json TEXT
 );
 
@@ -40,7 +39,6 @@ CREATE TABLE IF NOT EXISTS exp_run (
     pk INTEGER PRIMARY KEY,
     experiment_pk INTEGER,
     name TEXT,
-    slims_link TEXT,
     raw_json TEXT
 );
 
@@ -50,11 +48,10 @@ CREATE TABLE IF NOT EXISTS exp_runstep (
     experiment_pk INTEGER,
     name TEXT,
     sequence INTEGER,
-    slims_link TEXT,
     raw_json TEXT
 );
 
--- The provenance path.
+-- The project-to-content link with provenance path.
 CREATE TABLE IF NOT EXISTS runstep_content (
     runstep_content_pk INTEGER PRIMARY KEY,
     runstep_pk INTEGER NOT NULL,
@@ -89,13 +86,10 @@ SELECT
     c.content_type  AS content_type,
     l.runstep_pk    AS runstep_pk,
     s.name          AS runstep_name,
-    s.slims_link    AS runstep_link,
     l.exp_run_pk    AS exp_run_pk,
     r.name          AS exp_run_name,
-    r.slims_link    AS exp_run_link,
     l.experiment_pk AS experiment_pk,
-    e.name          AS experiment_name,
-    e.slims_link    AS experiment_link
+    e.name          AS experiment_name
 FROM runstep_content l
 LEFT JOIN content     c ON c.pk = l.content_pk
 LEFT JOIN exp_runstep s ON s.pk = l.runstep_pk
@@ -115,7 +109,6 @@ def _content_schema() -> str:
 CREATE TABLE IF NOT EXISTS content (
     pk INTEGER PRIMARY KEY,
     {cols},
-    slims_link TEXT,
     raw_json TEXT
 );
 {idx}
@@ -169,8 +162,9 @@ def init_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-
-# --- writing -----------------------------------------------------------------
+# ------------------------------------------------------
+# --- WRITING ------------------------------------------
+# ------------------------------------------------------
 
 def _insert_many(
     conn: sqlite3.Connection,
@@ -219,8 +213,9 @@ def write_meta(
     conn.commit()
 
 
-
-# --- reading -----------------------------------------------------------------
+# ------------------------------------------------------
+# --- READING ------------------------------------------
+# ------------------------------------------------------
 
 def all_linked_content_pks(conn: sqlite3.Connection) -> list[int]:
     rows = conn.execute("SELECT DISTINCT content_pk FROM runstep_content").fetchall()
@@ -238,7 +233,6 @@ def counts(conn: sqlite3.Connection) -> dict[str, int]:
 
 
 def get_meta(conn: sqlite3.Connection) -> dict[str, Any]:
-    print("test")
     try:
         row = conn.execute(
             "SELECT * FROM snapshot_meta ORDER BY rowid DESC LIMIT 1"
@@ -256,8 +250,9 @@ def get_meta(conn: sqlite3.Connection) -> dict[str, Any]:
 
 
 
-
-# --- typed-view queries (used by the web layer) ------------------------------
+# ------------------------------------------------------
+# --- TYPED-VIEW QUERIES (used by the web layer) -------
+# ------------------------------------------------------
 
 
 def _kind(view: str) -> content_types.Kind:
@@ -339,7 +334,7 @@ def linked_by_mammoid(
     if not mammoid:
         return []
     return conn.execute(
-        "SELECT pk, slims_id, content_type, mammoid, slims_link FROM content "
+        "SELECT pk, slims_id, content_type, mammoid FROM content "
         "WHERE mammoid = ? COLLATE NOCASE AND pk IS NOT ? ORDER BY content_type, slims_id",
         (mammoid.strip(), exclude_pk),
     ).fetchall()

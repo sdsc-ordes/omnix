@@ -42,18 +42,18 @@ SPEC: list[dict] = [
         "title": "Tumors",
         "types": ["Tumor", "Mets"],
         "fields": [
-            ("slims_id",      "ID",      "slims_id",              "l"),
-            ("mammoid",       "Mammoid", "mammoid",              "lf"),
-            ("exp_name",          "Exp. Name","@exp_name",        "lf"),
-            ("tumor_type",    "Type",    "cntn_cf_Type",          "lf"),
-            ("subtype",       "Subtype", "cntn_cf_subtype",       "lf"),
-            ("grade",         "Grade",   "cntn_cf_Grade",         "lf"),
-            ("er",            "ER",      "cntn_cf_erShortText",   ""),
-            ("pr",            "PR",      "cntn_cf_prShortText",   ""),
-            ("her2",          "HER2",    "cntn_cf_Her2",          ""),
-            ("ki67",          "Ki67",    "cntn_cf_ki67ShortText", ""),
-            ("rna_sequenced", "RNA",     "@rna_sequenced",        "lfb"),
-            ("n_xenografts",  "#PDX",    "@n_xenografts",         "l"),
+            ("slims_id",      "ID",         "slims_id",              "l"),
+            ("mammoid",       "Mammoid",    "mammoid",               "lf"),
+            ("exp_name",      "Exp. Name",  "@exp_name",             "lf"),
+            ("tumor_type",    "Type",       "cntn_cf_Type",          "lf"),
+            ("subtype",       "Subtype",    "cntn_cf_subtype",       "lf"),
+            ("grade",         "Grade",      "cntn_cf_Grade",         "lf"),
+            ("er",            "ER",         "cntn_cf_erShortText",   ""),
+            ("pr",            "PR",         "cntn_cf_prShortText",   ""),
+            ("her2",          "HER2",       "cntn_cf_Her2",          ""),
+            ("ki67",          "Ki67",       "cntn_cf_ki67ShortText", ""),
+            ("rna_sequenced", "RNA",        "@rna_sequenced",        "lfb"),
+            ("n_xenografts",  "#PDX",       "@n_xenografts",         "l"),
         ],
     },
     {
@@ -122,14 +122,13 @@ DERIVED: dict[str, str] = {
 BASE_COLUMNS: dict[str, str] = {
     "pk": "pk",
     "slims_id": "slims_id",
-    "slims_link": "slims_link",
     "type": "content_type",
     "mammoid": "mammoid",
     "raw_json": "raw_json",
 }
 
 # Promoted columns a field may reference directly (everything else is raw_json).
-PROMOTED = {"slims_id", "content_type", "mammoid", "original_content", "slims_link"}
+PROMOTED = {"slims_id", "content_type", "mammoid", "original_content"}
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 

@@ -44,9 +44,9 @@ def run(
         # 1. fetch all the content pks related to the project
         # 2. fetch and store the actual content
         _phase_fetch_structure(
-            conn, slims, base_url, project_name, project_pk
+            conn, slims, project_name, project_pk
         )
-        _phase_fetch_content(conn, slims, base_url, limit=limit)
+        _phase_fetch_content(conn, slims, limit=limit)
         result = store.counts(conn)
         store.build_type_views(conn)
         store.write_meta(conn, base_url, project_pk, project_name)
@@ -58,10 +58,15 @@ def run(
 def _phase_fetch_structure(
     conn,
     slims,
-    base_url: str,
     project_name: str,
     project_pk: int | None
 ) -> None:
+    """Fetch the full project structure from SLIMS for a given project name.
+
+    The project structure is as follows: Project -> Experiment -> Experiment Run
+    -> Experiment Runsteps -> Experiment Runstep Content. Each record is fetched
+    and stored directly in the database.
+    """
     if project_pk is None:
         project = extract.fetch_project(slims, project_name)
         project_pk = int(project.pk())
@@ -71,7 +76,7 @@ def _phase_fetch_structure(
     logger.info("Fetching experiment record(s).")
     exp_rows = []
     for batch in extract.fetch_by_parents(slims, slims_spec.EXPERIMENT, [project_pk]):
-        batch_exp_rows = [transform.experiment_row(r, project_pk, base_url) for r in batch]
+        batch_exp_rows = [transform.experiment_row(r, project_pk) for r in batch]
         if not batch_exp_rows:
             continue
         store.write_rows(conn, batch_exp_rows, "experiment")
@@ -83,7 +88,7 @@ def _phase_fetch_structure(
     run_rows = []
     for batch in extract.fetch_by_parents(
         slims, slims_spec.EXPERIMENT_RUN, [r["pk"] for r in exp_rows]):
-        batch_run_rows = [transform.run_row(r, base_url) for r in batch]
+        batch_run_rows = [transform.run_row(r) for r in batch]
         if not batch_run_rows:
             continue
         store.write_rows(conn, batch_run_rows, "exp_run")
@@ -91,12 +96,12 @@ def _phase_fetch_structure(
     experiment_by_run = {r["pk"]: r["experiment_pk"] for r in run_rows}
     logger.info(f"{len(run_rows)} run(s) found.")
 
-    # Experiment run steps
+    # Experiment runsteps
     logger.info("Fetching experiment run step record(s) per experiment run.")
     runstep_rows = []
     for batch in extract.fetch_by_parents(
         slims, slims_spec.EXPERIMENT_RUN_STEP, list(experiment_by_run)):
-        batch_runstep_rows = [transform.runstep_row(r, base_url, experiment_by_run) for r in batch]
+        batch_runstep_rows = [transform.runstep_row(r, experiment_by_run) for r in batch]
         if not batch_runstep_rows:
             continue
         store.write_rows(conn, batch_runstep_rows, "exp_runstep")
@@ -127,7 +132,6 @@ def _phase_fetch_structure(
 def _phase_fetch_content(
     conn,
     slims,
-    base_url: str,
     limit: int | None,
 ) -> int:
     pks = store.all_linked_content_pks(conn)
@@ -138,7 +142,7 @@ def _phase_fetch_content(
     logger.info(f"Fetching {len(pks)} content record(s)")
     total = 0
     for batch in extract.fetch_content(slims, pks, limit=limit):
-        rows = [transform.content_row(r, base_url) for r in batch]
+        rows = [transform.content_row(r) for r in batch]
         store.write_rows(conn, rows, "content")
         total += len(rows)
         logger.info(f"  {total}/{len(pks)}")
