@@ -187,7 +187,7 @@ class Field:
         """SELECT expression producing this field, aliased to ``key``."""
         if self.json_col is not None:
             _check(self.json_col)
-            expr = f"json_extract(c.raw_json, '$.{self.json_col}')"
+            expr = f"json_extract(c.raw_json, '$.{self.json_col}[1]')"
         elif self.content_col is not None:
             _check(self.content_col)
             expr = f"c.{self.content_col}"

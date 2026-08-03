@@ -107,7 +107,7 @@ tbody tr:hover { background: var(--accent-fill); }
 .fields { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0; }
 .fields dt { color: var(--muted); }
 .fields dd { margin: 0; }
-.fields.raw { max-height: 320px; overflow: auto; }
+.fields.raw { grid-template-columns: max-content minmax(0, 1fr) max-content; max-height: 320px; overflow: auto; }
 .omero-link { font-size: 0.8rem; font-weight: 500; margin-left: 0.4rem; }
 details summary { cursor: pointer; color: var(--text-secondary); }
 
