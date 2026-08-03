@@ -117,7 +117,8 @@ def experiment_row(
         "pk": record.pk(),
         "project_pk": project_pk,
         "name": _text(c, slims_spec.EXPERIMENT.name),
-        "omerolink": _text(c, _link(slims_spec.EXPERIMENT.omerolink)),
+        "omerolink": _text(c, slims_spec.EXPERIMENT.omerolink),
+        "guid": _text(c, slims_spec.EXPERIMENT.guid),
         "raw_json": json.dumps(raw_dump(record)),
     }
 

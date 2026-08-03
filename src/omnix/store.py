@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS experiment (
     project_pk INTEGER,
     name TEXT,
     omerolink TEXT,
+    guid TEXT,
     raw_json TEXT
 );
 

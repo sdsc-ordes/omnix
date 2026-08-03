@@ -108,7 +108,7 @@ tbody tr:hover { background: var(--accent-fill); }
 .fields dt { color: var(--muted); }
 .fields dd { margin: 0; }
 .fields.raw { grid-template-columns: max-content minmax(0, 1fr) max-content; max-height: 320px; overflow: auto; }
-.omero-link { font-size: 0.8rem; font-weight: 500; margin-left: 0.4rem; }
+.out-link { font-size: 0.8rem; font-weight: 500; margin-left: 0.4rem; }
 details summary { cursor: pointer; color: var(--text-secondary); }
 
 /* content-type badge + outbound SLIMS link (detail header) */

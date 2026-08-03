@@ -18,6 +18,7 @@ from urllib.parse import urlencode
 from flask import Flask, Response, abort, g, render_template, request
 
 from .. import content_types, store
+from ..slims_spec import SLIMS_BASE_URL
 from . import charts
 
 PER_PAGE = 50
@@ -102,6 +103,7 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
             provenance=store.provenance_for_content(conn, pk),
             linked=store.linked_by_mammoid(conn, base["mammoid"], exclude_pk=pk),
             raw=_raw(base),
+            slims_base_url=SLIMS_BASE_URL,
         )
 
     # --- export ------------------------------------------------------------

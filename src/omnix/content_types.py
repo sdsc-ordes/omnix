@@ -53,6 +53,7 @@ SPEC: list[dict] = [
             ("ki67",          "Ki67",       "cntn_cf_ki67ShortText", ""),
             ("on_omero",      "OMERO",      "@has_omerolink",        "bf"),
             ("omero_link",    "OMERO Link", "@omero_link",           ""),
+            ("exp_guid",      "Exp. GUID",  "@exp_guid",             ""),
             ("rna_sequenced", "RNA",        "@rna_sequenced",        "lfb"),
             ("n_xenografts",  "#PDX",       "@n_xenografts",         "l"),
         ],
@@ -133,6 +134,16 @@ DERIVED: dict[str, str] = {
         "WHERE l.content_pk = c.pk "
         "AND e.omerolink IS NOT NULL "
         "AND TRIM(e.omerolink) <> '' "
+        "ORDER BY e.pk "
+        "LIMIT 1)"
+    ),
+    "exp_guid": (
+        "(SELECT e.guid "
+        "FROM runstep_content l "
+        "JOIN experiment e ON e.pk = l.experiment_pk "
+        "WHERE l.content_pk = c.pk "
+        "AND e.guid IS NOT NULL "
+        "AND TRIM(e.guid) <> '' "
         "ORDER BY e.pk "
         "LIMIT 1)"
     ),
