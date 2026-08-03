@@ -16,22 +16,13 @@ from . import content_types
 DEFAULT_DB = Path(".omnix/snapshot.db")
 
 
-# --- content columns promoted out of raw_json into real SQL columns ----------
-# db column -> SLIMS column. Add a line and the schema, the writer and the UI
-# filter whitelist all pick it up; no other file needs to change.
-PROMOTED_CONTENT_COLUMNS: dict[str, str] = {
-    "slims_id": "cntn_barCode",
-    "content_type": "cntn_fk_contentType",
-    "mammoid": "cntn_cf_mammoid",
-    "original_content": "cntn_fk_originalContent",
-}
-
 
 _CORE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS experiment (
     pk INTEGER PRIMARY KEY,
     project_pk INTEGER,
     name TEXT,
+    omerolink TEXT,
     raw_json TEXT
 );
 
@@ -99,11 +90,11 @@ LEFT JOIN experiment  e ON e.pk = l.experiment_pk;
 
 
 def _content_schema() -> str:
-    cols = ",\n    ".join(f"{c} TEXT" for c in PROMOTED_CONTENT_COLUMNS)
+    cols = ",\n    ".join(f"{c} TEXT" for c in content_types.PROMOTED_CONTENT_COLUMNS)
     idx = "\n".join(
         f"CREATE INDEX IF NOT EXISTS idx_content_{c} ON content({c});"
         for c in ("content_type", "slims_id", "mammoid")
-        if c in PROMOTED_CONTENT_COLUMNS
+        if c in content_types.PROMOTED_CONTENT_COLUMNS
     )
     return f"""
 CREATE TABLE IF NOT EXISTS content (
@@ -118,17 +109,21 @@ CREATE TABLE IF NOT EXISTS content (
 def _type_view_sql(
     kind: content_types.Kind,
 ) -> str:
-    """CREATE VIEW for one Kind, projecting `content` into typed columns."""
+    """Create SQL view for one Content Kind, projecting slims content table into typed columns."""
+
     base = [f"c.{col} AS {alias}" for alias, col in content_types.BASE_COLUMNS.items()]
-    # a field may re-declare a base column (e.g. slims_id); keep the field's def
-    # and drop the base one so the alias is not selected twice.
     field_keys = {f.key for f in kind.fields}
+
+    # Drop base columns if already declared in fields (e.g. slims_id)
     base = [b for b in base if b.split(" AS ")[-1] not in field_keys]
     projected = [f.sql_expr() for f in kind.fields]
     select = ",\n    ".join(base + projected)
     return (
-        f"CREATE VIEW IF NOT EXISTS {kind.view} AS\nSELECT\n    {select}\n"
-        f"FROM content c\nWHERE {kind.where_clause()};"
+        f"CREATE VIEW IF NOT EXISTS {kind.view} AS\n"
+        f"SELECT\n"
+        f"    {select}\n"
+        f"FROM content c\n"
+        f"WHERE {kind.where_clause()};"
     )
 
 

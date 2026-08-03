@@ -31,27 +31,28 @@ from dataclasses import dataclass
 #             l  show this column in the list table
 #             f  offer it as a filter widget
 #             b  render as yes / -- (boolean)
-#
-#  To give an assay type its own page instead of sharing the Assays page,
-#  copy the assays entry and give it a single-item `types` list.
 # ============================================================================
+
+DEFAULT_N_SPEC_FIELDS = 4
 
 SPEC: list[dict] = [
     {
         "slug": "tumors",
         "title": "Tumors",
-        "types": ["Tumor", "Mets"],
+        "types": ["Tumor", "Mets", "Cancer"],
         "fields": [
             ("slims_id",      "ID",         "slims_id",              "l"),
             ("mammoid",       "Mammoid",    "mammoid",               "lf"),
             ("exp_name",      "Exp. Name",  "@exp_name",             "lf"),
             ("tumor_type",    "Type",       "cntn_cf_Type",          "lf"),
-            ("subtype",       "Subtype",    "cntn_cf_subtype",       "lf"),
-            ("grade",         "Grade",      "cntn_cf_Grade",         "lf"),
+            ("subtype",       "Subtype",    "cntn_cf_subtype",       ""),
+            ("grade",         "Grade",      "cntn_cf_Grade",         ""),
             ("er",            "ER",         "cntn_cf_erShortText",   ""),
             ("pr",            "PR",         "cntn_cf_prShortText",   ""),
             ("her2",          "HER2",       "cntn_cf_Her2",          ""),
             ("ki67",          "Ki67",       "cntn_cf_ki67ShortText", ""),
+            ("on_omero",      "OMERO",      "@has_omerolink",        "bf"),
+            ("omero_link",    "OMERO Link", "@omero_link",           ""),
             ("rna_sequenced", "RNA",        "@rna_sequenced",        "lfb"),
             ("n_xenografts",  "#PDX",       "@n_xenografts",         "l"),
         ],
@@ -65,6 +66,7 @@ SPEC: list[dict] = [
             ("mammoid",       "Mammoid",    "mammoid",              "lf"),
             ("exp_name",      "Exp. Name",  "@exp_name",            "lf"),
             ("mouse_exp_nb",  "Mouse Exp #","cntn_cf_mouseExpNb",   "l"),
+            ("generation",    "Generation", "cntn_cf_generationMm",   "l"),
             ("strain",        "Strain",     "cntn_cf_strain",       "lf"),
             ("sex",           "Sex",        "cntn_cf_sex",          "lf"),
             ("treatment",     "Treatment",  "cntn_cf_fk_treatment", "lf"),
@@ -84,10 +86,11 @@ SPEC: list[dict] = [
     },
 ]
 
+
+
 # ============================================================================
 #  Derived values usable via "@name" above. Each is a scalar SQL expression
-#  over the content row aliased `c`, reading the provenance graph (or other
-#  content) rather than a SLIMS column. Add one here to expose it as a field.
+#  over the content row aliased `c`.
 # ============================================================================
 
 DERIVED: dict[str, str] = {
@@ -105,12 +108,33 @@ DERIVED: dict[str, str] = {
         "AND l2.experiment_pk IN ("
         "SELECT l.experiment_pk FROM runstep_content l WHERE l.content_pk = c.pk))"
     ),
-    # Heuristic kept from the old mammoid-match logic: a "Tissue for RNA"
-    # content shares this row's sample id.
     "rna_sequenced": (
-        "(SELECT EXISTS(SELECT 1 FROM content r "
-        "WHERE r.mammoid IS NOT NULL AND r.mammoid = c.mammoid "
-        "AND r.content_type = 'Tissue for RNA'))"
+        "(SELECT EXISTS(SELECT 1 "
+        "FROM runstep_content l "
+        "JOIN content r ON r.pk = l.content_pk "
+        "WHERE r.content_type = 'Tissue for RNA' "
+        "AND l.experiment_pk IN ("
+        "SELECT l2.experiment_pk FROM runstep_content l2 WHERE l2.content_pk = c.pk)))"
+    ),
+    "has_omerolink": (
+        "(SELECT EXISTS("
+        "SELECT 1 "
+        "FROM runstep_content l "
+        "JOIN experiment e ON e.pk = l.experiment_pk "
+        "WHERE l.content_pk = c.pk "
+        "AND e.omerolink IS NOT NULL "
+        "AND TRIM(e.omerolink) <> ''"
+        "))"
+    ),
+    "omero_link": (
+        "(SELECT e.omerolink "
+        "FROM runstep_content l "
+        "JOIN experiment e ON e.pk = l.experiment_pk "
+        "WHERE l.content_pk = c.pk "
+        "AND e.omerolink IS NOT NULL "
+        "AND TRIM(e.omerolink) <> '' "
+        "ORDER BY e.pk "
+        "LIMIT 1)"
     ),
 }
 
@@ -127,8 +151,14 @@ BASE_COLUMNS: dict[str, str] = {
     "raw_json": "raw_json",
 }
 
-# Promoted columns a field may reference directly (everything else is raw_json).
-PROMOTED = {"slims_id", "content_type", "mammoid", "original_content"}
+# content columns promoted out of raw_json into real SQL columns
+PROMOTED_CONTENT_COLUMNS: dict[str, str] = {
+    "slims_id": "cntn_barCode",
+    "content_type": "cntn_fk_contentType",
+    "mammoid": "cntn_cf_mammoid",
+    "original_content": "cntn_fk_originalContent",
+}
+
 
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -184,8 +214,6 @@ class Kind:
     def where_clause(self) -> str:
         if self.include_types:
             return "c.content_type IN (" + ",".join(_lit(t) for t in self.include_types) + ")"
-        if self.exclude_types:
-            return "c.content_type NOT IN (" + ",".join(_lit(t) for t in self.exclude_types) + ")"
         return "1=1"
 
     def list_columns(self) -> list[tuple[str, str]]:
@@ -200,11 +228,11 @@ class Kind:
 
 def _compile_field(spec: tuple) -> Field:
     key, label, source = spec[0], spec[1], spec[2]
-    flags = spec[3] if len(spec) > 3 else ""
+    flags = spec[3] if len(spec) >= DEFAULT_N_SPEC_FIELDS else ""
     kwargs: dict = {}
     if source.startswith("@"):
         kwargs["derived"] = source[1:]
-    elif source in PROMOTED:
+    elif source in set(PROMOTED_CONTENT_COLUMNS.keys()):
         kwargs["content_col"] = source
     else:
         kwargs["json_col"] = source
@@ -226,16 +254,15 @@ def _compile(entry: dict) -> Kind:
         title=entry["title"],
         fields=tuple(_compile_field(f) for f in entry["fields"]),
         include_types=tuple(entry.get("types", ())),
-        exclude_types=tuple(entry.get("exclude_types", ())),
     )
 
 
-#: Visible kinds -- nav, dashboard, list pages.
+# Visible kinds -- nav, dashboard, list pages.
 KINDS: tuple[Kind, ...] = tuple(_compile(e) for e in SPEC)
 
-#: Fallback for content whose type is in none of the pages above (reachable via
-#: provenance / same-sample links). Built as a hidden view so its detail page
-#: still renders; also serves as an "all content" list at /all_content.
+# Fallback for content whose type is in none of the pages above (reachable via
+# provenance / same-sample links). Built as a hidden view so its detail page
+# still renders; also serves as an "all content" list at /all_content.
 _FALLBACK = Kind(
     slug="all_content",
     view="all_content",
@@ -260,7 +287,5 @@ def kind_for_content_type(content_type: str | None) -> Kind:
     if content_type:
         for k in KINDS:
             if content_type in k.include_types:
-                return k
-            if k.exclude_types and content_type not in k.exclude_types:
                 return k
     return _FALLBACK

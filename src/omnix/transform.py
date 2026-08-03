@@ -1,14 +1,11 @@
-"""Reshape raw SLIMS records into the row dicts that ``store`` writes.
+"""Reshape raw SLIMS records into the row dicts that ``store`` writes as SQL tables.
 
 Everything reads from ``record.json_entity["columns"]``. Each row dict's keys
-are exactly the SQL column names for its table,
-so ``store._insert_many`` builds the INSERT from the dict and a positional
-mismatch cannot happen.
+are exactly the SQL column names for its table.
 
-There is no longer any record -> Tumor/Mouse/Assay code here: those types are
-projected out of the stored ``content`` table by SQL views (see
-``content_types`` and ``store.build_type_views``), so a Content record only
-needs turning into one generic ``content`` row.
+There is one generic ``content`` row for each SLIMS content record.
+The Tumor/Mouse/Assay types are projected out of the stored ``content``
+table by SQL views (see ``content_types`` and ``store.build_type_views``).
 """
 
 
@@ -17,8 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from . import slims_spec
-from .store import PROMOTED_CONTENT_COLUMNS
+from . import slims_spec, content_types
 
 
 
@@ -63,19 +59,13 @@ def _disp(cols: dict[str, dict], name: str | None) -> Any:
     return _best_display(col) if col else None
 
 
-def raw_dump(
-    record: Any,
-) -> dict[str, Any]:
-    """All non-empty columns of a record as {name: value} -- stored as raw_json
-    so a detail page can show every SLIMS field, not just the modeled ones."""
-    out: dict[str, Any] = {}
-    for c in record.json_entity["columns"]:
-        name, value = c.get("name"), c.get("value")
-        if not name or value in (None, "", []):
-            continue
-        display = _best_display(c)
-        out[name] = display if display is not None else value
-    return out
+def _link(v: Any) -> str | None:
+    """Extract url from a html link field, e.g. `<a href="url">link text</a>` -> `url`."""
+    parts = v.split('href="')
+    if len(parts) > 1:
+        return parts[1].split('"')[0].strip()
+    else:
+        return None
 
 
 def _text(
@@ -86,9 +76,26 @@ def _text(
     v = _val(cols, name)
     if v in (None, "", []):
         return None
+    if name == slims_spec.EXPERIMENT.omerolink:
+        return _link(v)
     if isinstance(v, float) and v.is_integer():
         v = int(v)
     return str(v).strip()
+
+
+def raw_dump(
+    record: Any,
+) -> dict[str, Any]:
+    """All non-empty columns of a record as {name: (title, value)} -- stored as raw_json
+    so a detail page can show every SLIMS field, not just the modeled ones."""
+    out: dict[str, Any] = {}
+    for c in record.json_entity["columns"]:
+        name, title, value = c.get("name"), c.get("title"), c.get("value")
+        if not name or not title or value in (None, "", []):
+            continue
+        display = _best_display(c)
+        out[name] = (title, display if display is not None else value)
+    return out
 
 
 def label(cols: dict[str, dict], name: str | None) -> str | None:
@@ -99,7 +106,7 @@ def label(cols: dict[str, dict], name: str | None) -> str | None:
     return _text(cols, name)
 
 
-# --- record -> row -----------------------------------------------------------
+# --- slims record -> sql row -----------------------------------------------------------
 
 def experiment_row(
     record: Any,
@@ -110,6 +117,7 @@ def experiment_row(
         "pk": record.pk(),
         "project_pk": project_pk,
         "name": _text(c, slims_spec.EXPERIMENT.name),
+        "omerolink": _text(c, _link(slims_spec.EXPERIMENT.omerolink)),
         "raw_json": json.dumps(raw_dump(record)),
     }
 
@@ -139,8 +147,6 @@ def runstep_row(
     return {
         "pk": record.pk(),
         "exp_run_pk": run_pk,
-        # Denormalised so "all content in experiment X" is one indexed lookup
-        # instead of a three-table join.
         "experiment_pk": (experiment_by_run or {}).get(run_pk),
         "name": _text(c, slims_spec.EXPERIMENT_RUN_STEP.name),
         "raw_json": json.dumps(raw_dump(record)),
@@ -177,7 +183,7 @@ def content_row(
     """A Content record: promoted columns + the full raw dump."""
     c = _columns(record)
     row: dict[str, Any] = {"pk": record.pk()}
-    for db_col, slims_col in PROMOTED_CONTENT_COLUMNS.items():
+    for db_col, slims_col in content_types.PROMOTED_CONTENT_COLUMNS.items():
         row[db_col] = label(c, slims_col)
     row["raw_json"] = json.dumps(raw_dump(record))
     return row

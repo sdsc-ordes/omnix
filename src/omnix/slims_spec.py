@@ -16,6 +16,7 @@ class TableSpec:
     pk: str
     parent_fk: str | None = None
     name: str | None = None
+    omerolink: str | None = None
 
 
 # Project -> Experiment -> Run -> RunStep -> RunStepContent <---> Content
@@ -30,6 +31,7 @@ EXPERIMENT = TableSpec(
     pk="xprm_pk",
     parent_fk="xprm_fk_project",
     name="xprm_name",
+    omerolink="xprm_cf_omeroLink",
 )
 
 EXPERIMENT_RUN = TableSpec(

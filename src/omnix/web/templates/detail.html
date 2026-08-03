@@ -6,13 +6,15 @@
   {{ row['slims_id'] }}
   <span class="type-badge">{{ row['type'] }}</span>
   <span class="sub">{{ row['mammoid'] or '(no sample id)' }}</span>
+  {% if row["omero_link"] %}
+    <a class="omero-link" href="{{ row['omero_link'] }}" target="_blank" rel="noopener noreferrer">OMERO ↗</a>
+  {% endif %}
 </h1>
-
 <section class="panel">
   <h2>Fields</h2>
   <dl class="fields">
     {% for f in kind.fields %}
-      {% if f.key not in ('slims_id',) %}
+      {% if f.key not in ('slims_id', 'omero_link', 'exp_name', 'mammoid') %}
         <dt>{{ f.label }}</dt><dd>{{ fmt_cell(kind, f.key, row[f.key]) }}</dd>
       {% endif %}
     {% endfor %}
