@@ -1,8 +1,7 @@
 """Fetch xenograft Content records from SLIMS.
 
 Actual samples live in the ``Content`` table, each linked to its type via
-``cntn_fk_contentType`` = a ContentType fk or via its name (`cntp_name`). The fks below come from the
-ContentType catalog of this instance.
+its name (`cntp_name`).
 """
 from __future__ import annotations
 
@@ -50,7 +49,10 @@ def fetch_project(
     slims: Slims,
     project_name: str,
 ) -> Any:
-    """Resolve a Project by name (`prjc_name`)."""
+    """Resolve a Project by name (`prjc_name`).
+
+    Expects one project entry per project name. Raises error if not exactly one is found.
+    """
     projects = slims.fetch("Project", equals("prjc_name", project_name))
     if len(projects) != 1:
         raise ValueError(f"Expected one project named {project_name!r}, got {len(projects)}")
@@ -64,7 +66,7 @@ def fetch_by_parents(
     batch_size: int = BATCH_SIZE,
     limit: int | None = None,
 ) -> Iterator[list[Any]]:
-    """All rows of `spec.table` whose parent fk is one of `parent_pks`.
+    """All rows of SLIMS table whose parent fk is one of `parent_pks`.
 
     Fetch by batches on pk list to avoid failed queries.
     """
@@ -79,7 +81,7 @@ def fetch_by_parents(
         total_fetched += len(fetched)
         yield fetched
         if limit is not None and total_fetched >= limit:
-            break
+            return
 
 
 def fetch_content(
@@ -104,4 +106,4 @@ def fetch_content(
         total_fetched += len(fetched)
         yield fetched
         if limit is not None and total_fetched >= limit:
-            break
+            return

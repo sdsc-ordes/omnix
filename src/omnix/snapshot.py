@@ -23,7 +23,7 @@ def run(
     project_pk: int | None = None,
     limit: int | None = None,
 ) -> dict[str, int]:
-    """Build/update a snapshot. Returns row counts per table.
+    """Build a snapshot. Returns row counts per table.
 
     Args:
         db_path: Path to the SQLite database.
@@ -33,7 +33,7 @@ def run(
     """
     config = load_config()
     slims = connect(config)
-    base_url = config["SLIMS_URL"].replace("rest", "")
+    base_url = config["SLIMS_URL"]
 
     conn = store.connect(db_path, read_only=False)
     try:
@@ -44,7 +44,7 @@ def run(
         # 1. fetch all the content pks related to the project
         # 2. fetch and store the actual content
         _phase_fetch_structure(
-            conn, slims, project_name, project_pk
+            conn, slims, project_name, project_pk, limit=limit,
         )
         _phase_fetch_content(conn, slims, limit=limit)
         result = store.counts(conn)
@@ -59,7 +59,8 @@ def _phase_fetch_structure(
     conn,
     slims,
     project_name: str,
-    project_pk: int | None
+    project_pk: int | None,
+    limit: int | None = None,
 ) -> None:
     """Fetch the full project structure from SLIMS for a given project name.
 
@@ -113,7 +114,7 @@ def _phase_fetch_structure(
     logger.info("Fetching experiment run step content record(s) per run step.")
     runstep_content_link_rows = []
     for batch in extract.fetch_by_parents(
-        slims, slims_spec.RUN_STEP_CONTENT, list(run_by_step)):
+        slims, slims_spec.RUN_STEP_CONTENT, list(run_by_step), limit=limit):
 
         # Keep track of the link Experiment -> ExperimentRun ... -> Content
         batch_content_link_rows = [
