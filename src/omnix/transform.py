@@ -169,13 +169,14 @@ def content_link_row(
         return None
     runstep_pk = int(_val(c, slims_spec.RUN_STEP_CONTENT.parent_fk))
     run_pk = run_by_step.get(runstep_pk)
-    return {
-        "runstep_content_pk": record.pk(),
-        "runstep_pk": runstep_pk,
-        "exp_run_pk": run_pk,
-        "experiment_pk": experiment_by_run.get(run_pk),
-        "content_pk": content_pk,
-    }
+    if run_pk:
+        return {
+            "runstep_content_pk": record.pk(),
+            "runstep_pk": runstep_pk,
+            "exp_run_pk": run_pk,
+            "experiment_pk": experiment_by_run.get(run_pk),
+            "content_pk": content_pk,
+        }
 
 
 def content_row(

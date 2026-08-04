@@ -43,11 +43,12 @@ def run(
         # Procede to build the snapshot in two phases:
         # 1. fetch all the content pks related to the project
         # 2. fetch and store the actual content
-        _phase_fetch_structure(
+        mammoid_set = _phase_fetch_structure(
             conn, slims, project_name, project_pk, limit=limit,
         )
-        _phase_fetch_content(conn, slims, limit=limit)
+        _phase_fetch_content(conn, slims, mammoid_set, limit=limit)
         result = store.counts(conn)
+        store.build_link_table(conn)
         store.build_type_tables(conn)
         store.write_meta(conn, base_url, project_pk, project_name)
         return result
@@ -61,7 +62,7 @@ def _phase_fetch_structure(
     project_name: str,
     project_pk: int | None,
     limit: int | None = None,
-) -> None:
+) -> set:
     """Fetch the full project structure from SLIMS for a given project name.
 
     The project structure is as follows: Project -> Experiment -> Experiment Run
@@ -76,11 +77,13 @@ def _phase_fetch_structure(
     # Experiments
     logger.info("Fetching experiment record(s).")
     exp_rows = []
+    mammoid_set = set()
     for batch in extract.fetch_by_parents(slims, slims_spec.EXPERIMENT, [project_pk]):
         batch_exp_rows = [transform.experiment_row(r, project_pk) for r in batch]
         if not batch_exp_rows:
             continue
         store.write_rows(conn, batch_exp_rows, "experiment")
+        mammoid_set.update([exp_row["name"] for exp_row in batch_exp_rows])
         exp_rows.extend(batch_exp_rows)
     logger.info(f"{len(exp_rows)} experiment(s) found.")
 
@@ -128,21 +131,41 @@ def _phase_fetch_structure(
         f"{len(runstep_content_link_rows)} link(s) -> "
         f"{len({r['content_pk'] for r in runstep_content_link_rows})} distinct content pk(s)",
     )
+    return mammoid_set
 
 
 def _phase_fetch_content(
     conn,
     slims,
+    mammoid_set,
     limit: int | None,
 ) -> int:
+    """Fetch Tumor, Mouse, Assays content in two passes.
+
+    First fetch tumor using mammoids. The mammoids is assumed to correspond
+    to experiment name. Then fetch all remaining content types by pks. No duplicate.
+    """
+    total = 0
+    fetched_pks : set[int] = set()
+    if len(mammoid_set) != 0:
+        logger.info(f"Fetching {len(mammoid_set)} Tumor content record(s) by mammoid")
+        for batch in extract.fetch_content_by_mammoid(slims, mammoid_set, limit=limit):
+            rows = [transform.content_row(r) for r in batch]
+            fetched_pks.update([row["pk"] for row in rows])
+            store.write_rows(conn, rows, "content")
+            total += len(rows)
+            logger.info(f"  {total}/{len(mammoid_set)}")
+
     pks = store.all_linked_content_pks(conn)
+    pks -= fetched_pks
     if not pks:
-        logger.info("No content to fetch")
+        logger.info("No remaining content to fetch by pk.")
         return 0
 
-    logger.info(f"Fetching {len(pks)} content record(s)")
+    logger.info(f"Fetching {len(pks)} Mouse/Assays content record(s) using pk"
+        " from linked experiment record")
     total = 0
-    for batch in extract.fetch_content(slims, pks, limit=limit):
+    for batch in extract.fetch_content_by_pk(slims, pks, limit=limit):
         rows = [transform.content_row(r) for r in batch]
         store.write_rows(conn, rows, "content")
         total += len(rows)

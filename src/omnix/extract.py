@@ -10,9 +10,10 @@ from collections.abc import Iterator
 from itertools import batched
 from typing import Any, Sequence
 
-from slims.criteria import equals, is_one_of
+from slims.criteria import equals, is_one_of, conjunction, is_not_one_of
 from slims.slims import Slims
 from .slims_spec import TableSpec, CONTENT
+from .content_types import TUMOR_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +85,31 @@ def fetch_by_parents(
             return
 
 
-def fetch_content(
+def fetch_content_by_mammoid(
     slims: Slims,
-    content_pks: Sequence[int],
+    mammoids: Sequence[str],
+    batch_size: int = BATCH_SIZE,
+    limit: int | None= None,
+) -> Iterator[list[Any]]:
+    if not mammoids:
+        return
+    total_fetched = 0
+    for batch in batched(mammoids, batch_size):
+        criteria = conjunction()
+        if CONTENT.name:
+            criteria.add(is_one_of(CONTENT.name, TUMOR_TYPES))
+        if CONTENT.mammoid:
+            criteria.add(is_one_of(CONTENT.mammoid, list(batch)))
+        fetched = slims.fetch(CONTENT.table, criteria)
+        total_fetched += len(fetched)
+        yield fetched
+        if limit is not None and total_fetched >= limit:
+            return
+
+
+def fetch_content_by_pk(
+    slims: Slims,
+    content_pks: set[int],
     batch_size: int = BATCH_SIZE,
     limit: int | None = None,
 ) -> Iterator[list[Any]]:
@@ -102,7 +125,11 @@ def fetch_content(
     pks = sorted({int(p) for p in content_pks})
     total_fetched = 0
     for batch in batched(pks, batch_size):
-        fetched = slims.fetch(CONTENT.table, is_one_of(CONTENT.pk, list(batch)))
+        criteria = conjunction()
+        criteria.add(is_one_of(CONTENT.pk, list(batch)))
+        if CONTENT.name:
+            criteria.add(is_not_one_of(CONTENT.name, TUMOR_TYPES))
+        fetched = slims.fetch(CONTENT.table, criteria)
         total_fetched += len(fetched)
         yield fetched
         if limit is not None and total_fetched >= limit:

@@ -17,7 +17,7 @@
   <h2>Fields</h2>
   <dl class="fields">
     {% for f in kind.fields %}
-      {% if f.key not in ('slims_id', 'omero_link', 'exp_name', 'mammoid', 'exp_guid') %}
+      {% if f.key not in ('slims_id', 'omero_link', 'exp_name', 'mammoid', 'exp_guid', 'on_omero') %}
         <dt>{{ f.label }}</dt><dd>{{ fmt_cell(kind, f.key, row[f.key]) }}</dd>
       {% endif %}
     {% endfor %}

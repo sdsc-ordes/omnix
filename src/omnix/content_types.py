@@ -34,12 +34,13 @@ from dataclasses import dataclass
 # ============================================================================
 
 DEFAULT_N_SPEC_FIELDS = 4
+TUMOR_TYPES = ["Tumor", "Mets", "Cancer"]
 
 SPEC: list[dict] = [
     {
         "slug": "tumors",
         "title": "Tumors",
-        "types": ["Tumor", "Mets", "Cancer"],
+        "types": TUMOR_TYPES,
         "fields": [
             ("slims_id",      "ID",         "slims_id",              "l"),
             ("mammoid",       "Mammoid",    "mammoid",               "lf"),
@@ -51,7 +52,7 @@ SPEC: list[dict] = [
             ("pr",            "PR",         "cntn_cf_prShortText",   ""),
             ("her2",          "HER2",       "cntn_cf_Her2",          ""),
             ("ki67",          "Ki67",       "cntn_cf_ki67ShortText", ""),
-            ("on_omero",      "OMERO",      "@has_omerolink",        "bf"),
+            ("on_omero",      "OMERO",      "@has_omerolink",        "blf"),
             ("omero_link",    "OMERO Link", "@omero_link",           ""),
             ("exp_guid",      "Exp. GUID",  "@exp_guid",             ""),
             ("rna_sequenced", "RNA",        "@rna_sequenced",        "lfb"),
@@ -97,30 +98,28 @@ SPEC: list[dict] = [
 DERIVED: dict[str, str] = {
     "exp_name": (
             "(SELECT GROUP_CONCAT(DISTINCT e.name) "
-            "FROM runstep_content l "
+            "FROM content_to_experiment l "
             "JOIN experiment e ON e.pk = l.experiment_pk "
             "WHERE l.content_pk = c.pk)"
         ),
     "n_xenografts": (
         "(SELECT COUNT(DISTINCT m.pk) "
-        "FROM runstep_content l2 "
-        "JOIN content m ON m.pk = l2.content_pk "
-        "WHERE m.content_type = 'Mouse' "
-        "AND l2.experiment_pk IN ("
-        "SELECT l.experiment_pk FROM runstep_content l WHERE l.content_pk = c.pk))"
+        "FROM content_to_experiment t1 "
+        "JOIN content_to_experiment t2 ON t2.experiment_pk = t1.experiment_pk "
+        "JOIN content m ON m.pk = t2.content_pk "
+        "WHERE t1.content_pk = c.pk AND m.content_type = 'Mouse')"
     ),
     "rna_sequenced": (
         "(SELECT EXISTS(SELECT 1 "
-        "FROM runstep_content l "
-        "JOIN content r ON r.pk = l.content_pk "
-        "WHERE r.content_type = 'Tissue for RNA' "
-        "AND l.experiment_pk IN ("
-        "SELECT l2.experiment_pk FROM runstep_content l2 WHERE l2.content_pk = c.pk)))"
+        "FROM content_to_experiment t1 "
+        "JOIN content_to_experiment t2 ON t2.experiment_pk = t1.experiment_pk "
+        "JOIN content r ON r.pk = t2.content_pk "
+        "WHERE t1.content_pk = c.pk AND r.content_type = 'Tissue for RNA'))"
     ),
     "has_omerolink": (
         "(SELECT EXISTS("
         "SELECT 1 "
-        "FROM runstep_content l "
+        "FROM content_to_experiment l "
         "JOIN experiment e ON e.pk = l.experiment_pk "
         "WHERE l.content_pk = c.pk "
         "AND e.omerolink IS NOT NULL "
@@ -129,7 +128,7 @@ DERIVED: dict[str, str] = {
     ),
     "omero_link": (
         "(SELECT e.omerolink "
-        "FROM runstep_content l "
+        "FROM content_to_experiment l "
         "JOIN experiment e ON e.pk = l.experiment_pk "
         "WHERE l.content_pk = c.pk "
         "AND e.omerolink IS NOT NULL "
@@ -139,7 +138,7 @@ DERIVED: dict[str, str] = {
     ),
     "exp_guid": (
         "(SELECT e.guid "
-        "FROM runstep_content l "
+        "FROM content_to_experiment l "
         "JOIN experiment e ON e.pk = l.experiment_pk "
         "WHERE l.content_pk = c.pk "
         "AND e.guid IS NOT NULL "

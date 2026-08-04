@@ -90,6 +90,29 @@ LEFT JOIN experiment  e ON e.pk = l.experiment_pk;
 """
 
 
+_LINK_TABLE = """
+CREATE TABLE content_to_experiment AS
+-- tumors: the experiment is named after the mammoid
+SELECT c.pk AS content_pk, e.pk AS experiment_pk, 'mammoid' AS via
+FROM content c
+JOIN experiment e ON TRIM(e.name) = TRIM(c.mammoid) COLLATE NOCASE
+WHERE c.content_type IN ({tumor_types})
+  AND c.mammoid IS NOT NULL AND TRIM(c.mammoid) <> ''
+
+UNION
+
+-- everything else: provenance through run -> runstep -> runstep content
+SELECT l.content_pk, l.experiment_pk, 'runstep'
+FROM runstep_content l
+JOIN content c ON c.pk = l.content_pk
+WHERE l.experiment_pk IS NOT NULL
+  AND c.content_type NOT IN ({tumor_types});
+
+CREATE UNIQUE INDEX idx_ce_pair ON content_to_experiment(content_pk, experiment_pk);
+CREATE INDEX idx_ce_exp ON content_to_experiment(experiment_pk);
+"""
+
+
 def _content_schema() -> str:
     cols = ",\n    ".join(f"{c} TEXT" for c in content_types.PROMOTED_CONTENT_COLUMNS)
     idx = "\n".join(
@@ -146,6 +169,13 @@ def build_type_tables(conn: sqlite3.Connection) -> None:
         conn.execute(f"CREATE TABLE {kind.view} AS {_select_sql(kind)}")
         for col in dict.fromkeys(["pk", "slims_id", *kind.filter_columns()]):
             conn.execute(f"CREATE INDEX idx_{kind.view}_{col} ON {kind.view}({col})")
+    conn.commit()
+
+
+def build_link_table(conn: sqlite3.Connection) -> None:
+    _drop_object(conn, "content_to_experiment")
+    types = ",".join("'" + t.replace("'", "''") + "'" for t in content_types.TUMOR_TYPES)
+    conn.executescript(_LINK_TABLE.format(tumor_types=types))
     conn.commit()
 
 
@@ -224,9 +254,9 @@ def write_meta(
 # --- READING ------------------------------------------
 # ------------------------------------------------------
 
-def all_linked_content_pks(conn: sqlite3.Connection) -> list[int]:
+def all_linked_content_pks(conn: sqlite3.Connection) -> set[int]:
     rows = conn.execute("SELECT DISTINCT content_pk FROM runstep_content").fetchall()
-    return [r[0] for r in rows]
+    return set([r[0] for r in rows])
 
 
 def counts(conn: sqlite3.Connection) -> dict[str, int]:
@@ -236,6 +266,19 @@ def counts(conn: sqlite3.Connection) -> dict[str, int]:
             out[table] = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         except sqlite3.OperationalError:
             out[table] = 0
+
+    try:
+        out["tumor_only"] = conn.execute(f"SELECT COUNT(*) FROM content c "
+            f"WHERE c.content_type IN {content_types.TUMOR_TYPES} "
+            f"AND NOT EXISTS (SELECT 1 FROM content_experiment "
+            f"ce WHERE ce.content_pk = c.pk);")
+        out["exp_only"] = conn.execute("SELECT COUNT(*) FROM experiment e "
+            "WHERE NOT EXISTS (SELECT 1 FROM content_experiment ce "
+            "JOIN content c ON c.pk = ce.content_pk"
+            f"WHERE ce.experiment_pk = e.pk AND c.content_type IN {content_types.TUMOR_TYPES});")
+    except sqlite3.OperationalError:
+        out["tumor_only"] = 0
+        out["exp_only"] = 0
     return out
 
 
@@ -324,7 +367,10 @@ def get_one_in_view(conn: sqlite3.Connection, entity: str, content_pk: int) -> s
     return conn.execute(f"SELECT * FROM {kind.view} WHERE pk = ?", (content_pk,)).fetchone()
 
 
-def provenance_for_content(conn: sqlite3.Connection, content_pk: int) -> list[sqlite3.Row]:
+def provenance_for_content(
+    conn: sqlite3.Connection,
+    content_pk: int
+) -> list[sqlite3.Row]:
     """Every experiment / run / step a content record was used in."""
     return conn.execute(
         "SELECT * FROM content_provenance WHERE content_pk = ? "

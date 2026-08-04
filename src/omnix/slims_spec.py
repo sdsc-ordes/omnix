@@ -21,6 +21,7 @@ class TableSpec:
     name: str | None = None
     omerolink: str | None = None
     guid: str | None = None
+    mammoid: str | None = None
 
 
 # Project -> Experiment -> Run -> RunStep -> RunStepContent <---> Content
@@ -65,4 +66,5 @@ CONTENT = TableSpec(
     table="Content",
     pk="cntn_pk",
     name="cntp_name",
+    mammoid="cntn_cf_mammoid",
 )
