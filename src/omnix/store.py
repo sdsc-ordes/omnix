@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS content (
 """
 
 
-def _type_view_sql(
+def _select_sql(
     kind: content_types.Kind,
 ) -> str:
     """Create SQL view for one Content Kind, projecting slims content table into typed columns."""
@@ -120,7 +120,6 @@ def _type_view_sql(
     projected = [f.sql_expr() for f in kind.fields]
     select = ",\n    ".join(base + projected)
     return (
-        f"CREATE VIEW IF NOT EXISTS {kind.view} AS\n"
         f"SELECT\n"
         f"    {select}\n"
         f"FROM content c\n"
@@ -128,13 +127,25 @@ def _type_view_sql(
     )
 
 
-def build_type_views(
-    conn: sqlite3.Connection,
-) -> None:
-    """(Re)create the tumor/mouse/assay views over the content table."""
+def _drop_object(conn: sqlite3.Connection, name: str) -> None:
+    """Removes any SQL object (VIEW or TABLE) with provided name.
+
+    For backward compatibility.
+    """
+    row = conn.execute(
+        "SELECT type FROM sqlite_master WHERE name = ?", (name,)
+    ).fetchone()
+    if row:
+        conn.execute(f"DROP {row[0].upper()} IF EXISTS {name}")
+
+
+def build_type_tables(conn: sqlite3.Connection) -> None:
+    """(Re)create the tumor/mouse/assay tables over the content entries."""
     for kind in content_types.ALL_KINDS:
-        conn.execute(f"DROP VIEW IF EXISTS {kind.view}")
-        conn.execute(_type_view_sql(kind))
+        _drop_object(conn, kind.view)
+        conn.execute(f"CREATE TABLE {kind.view} AS {_select_sql(kind)}")
+        for col in dict.fromkeys(["pk", "slims_id", *kind.filter_columns()]):
+            conn.execute(f"CREATE INDEX idx_{kind.view}_{col} ON {kind.view}({col})")
     conn.commit()
 
 

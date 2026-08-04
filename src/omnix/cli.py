@@ -3,11 +3,12 @@
 Subcommands:
 
     omnix snapshot     Pull SLIMS -> reshape -> write the local SQLite snapshot.
+    omnix rebuild      Rebuild content table after fetch time. No VPN, no internet needed.
     omnix serve        Launch the web app over an existing snapshot.
     omnix dump         Print raw Content records (debugging).
 
 `snapshot` and `dump` reach your SLIMS instance over the network (connect to its
-VPN first if it requires one). `serve` only reads the local snapshot file.
+VPN first if it requires one). `rebuild` and `serve` only reads the local snapshot file.
 
 SLIMS columns have cryptic names (e.g. ``cntn_fk_status``). Each column also
 carries a human-readable ``title`` ("Status"), a resolved ``displayValue``
@@ -15,8 +16,7 @@ carries a human-readable ``title`` ("Status"), a resolved ``displayValue``
 """
 
 import argparse
-
-from slims.criteria import not_equals, equals
+from slims.criteria import not_equals
 from . import store
 
 
@@ -93,6 +93,27 @@ def cmd_snapshot(args) -> None:
     print(f"Wrote snapshot to {args.db}: {summary}")
 
 
+def cmd_rebuild(args) -> None:
+    from pathlib import Path   # noqa: PLC0415
+    from . import store  # noqa: PLC0415
+
+    db = Path(args.db)
+    if not db.exists():
+        raise SystemExit(f"No snapshot at {db} -- run `omnix snapshot` first.")
+
+    conn = store.connect(db, read_only=False)
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM content").fetchone()[0]
+        if not n:
+            raise SystemExit(f"{db} has no content rows -- nothing to rebuild.")
+        print(f"(Re-)building content tables from {db} ({n} content rows)")
+        conn.execute("BEGIN")
+        store.build_type_tables(conn)
+        print("  " + "  ".join(f"{k}={v}" for k, v in store.counts(conn).items()))
+    finally:
+        conn.close()
+
+
 def cmd_serve(args) -> None:
     from .web.app import create_app  # noqa: PLC0415 (lazy: avoid importing Flask unless serving)
 
@@ -113,6 +134,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_snap.add_argument("--limit", type=int, default=None, help="Cap rows per content type (dev).")
     p_snap.set_defaults(func=cmd_snapshot)
+
+    p_rebuild = sub.add_parser("rebuild", help="Rebuild the content tables over an existing snapshot.")
+    p_rebuild.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
+    p_rebuild.set_defaults(func=cmd_rebuild)
 
     p_serve = sub.add_parser("serve", help="Run the web app over an existing snapshot.")
     p_serve.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")

@@ -48,7 +48,7 @@ def run(
         )
         _phase_fetch_content(conn, slims, limit=limit)
         result = store.counts(conn)
-        store.build_type_views(conn)
+        store.build_type_tables(conn)
         store.write_meta(conn, base_url, project_pk, project_name)
         return result
     finally:

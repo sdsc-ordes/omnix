@@ -1,7 +1,7 @@
 """What each content type looks like on the website.
 
-Each entry becomes a nav item, a list page, and a SQL view over the ``content`` table
-(built by ``store.build_type_views``). The engine below the block compiles those
+Each Kind becomes a nav item, a list page, and an SQL table over the ``content`` table
+(built by ``store.build_type_tables``). The engine below the block compiles those
 entries into SQL.
 
 A content row's type-specific columns live in ``raw_json``; a field just names
