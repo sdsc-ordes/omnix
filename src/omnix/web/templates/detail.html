@@ -24,25 +24,31 @@
   </dl>
 </section>
 
-<section class="panel">
-  <h2>Provenance <span class="sub">{{ provenance|length }} link{{ '' if provenance|length == 1 else 's' }}</span></h2>
-  {% if provenance %}
-    <div class="table-wrap"><table>
-      <thead><tr><th>Experiment</th><th>Run</th><th>Run step</th></tr></thead>
-      <tbody>
-        {% for p in provenance %}
-          <tr>
-            <td>{{ p['experiment_name'] or p['experiment_pk'] }}</td>
-            <td>{{ p['exp_run_name'] or p['exp_run_pk'] }}</td>
-            <td>{{ p['runstep_name'] or p['runstep_pk'] }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table></div>
-  {% else %}
-    <p class="muted">No experiment link recorded for this content.</p>
-  {% endif %}
-</section>
+{% if provenance %}
+    <section class="panel">
+        <h2>Provenance <span class="sub">{{ provenance|length }} link{{ '' if provenance|length == 1 else 's' }}</span></h2>
+            <div class="table-wrap"><table>
+            <thead><tr><th>Experiment</th><th>Run</th></tr></thead>
+            <tbody>
+                {% for p in provenance %}
+                <tr>
+                    <td>
+                        {% if p['tumor_pk'] %}
+                            <a href="/content/{{ p['tumor_pk'] }}"
+                                title="{{ p['experiment_name'] }}">
+                                {{ p['experiment_name'] or p['experiment_pk'] }}
+                            </a>
+                        {% else %}
+                            {{ p['experiment_name'] or p['experiment_pk'] }}
+                        {% endif %}
+                    </td>
+                    <td>{{ p['exp_run_name'] or p['exp_run_pk'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            </table></div>
+    </section>
+{% endif %}
 
 {% include "_raw.html" %}
 {% endblock %}

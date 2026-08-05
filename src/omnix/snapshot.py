@@ -47,10 +47,10 @@ def run(
             conn, slims, project_name, project_pk, limit=limit,
         )
         _phase_fetch_content(conn, slims, mammoid_set, limit=limit)
-        result = store.counts(conn)
         store.build_link_table(conn)
         store.build_type_tables(conn)
-        store.write_meta(conn, base_url, project_pk, project_name)
+        result = store.counts(conn)
+        store.write_meta(conn, base_url, project_pk, project_name, result)
         return result
     finally:
         conn.close()
