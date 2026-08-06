@@ -5,7 +5,7 @@ are exactly the SQL column names for its table.
 
 There is one generic ``content`` row for each SLIMS content record.
 The Tumor/Mouse/Assay types are projected out of the stored ``content``
-table by SQL views (see ``content_types`` and ``store.build_type_views``).
+table as new SQL tables (see ``content_types`` and ``store.build_type_tables``).
 """
 
 
@@ -19,7 +19,6 @@ from . import slims_spec, content_types
 
 
 # --- low-level column access -------------------------------------------------
-
 
 def _columns(
     record: Any,

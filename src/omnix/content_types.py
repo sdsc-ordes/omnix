@@ -5,8 +5,9 @@ Each Kind becomes a nav item, a list page, and an SQL table over the ``content``
 entries into SQL.
 
 A content row's type-specific columns live in ``raw_json``; a field just names
-the SLIMS column to pull out. Promoted columns and provenance-derived values use
-a short prefix so you never have to say *how* a value is fetched.
+the SLIMS column to pull out. A field can also contain values that are derived from the
+experiment content such as the number of mice per experiment, etc... Derived fields
+are identified with the prefix `@`.
 """
 
 from __future__ import annotations
