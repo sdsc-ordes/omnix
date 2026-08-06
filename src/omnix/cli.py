@@ -67,7 +67,6 @@ def cmd_dump(args) -> None:
                 continue
             for record in records:
                 describe_record(record)
-            break
     except requests.exceptions.RequestException as error:
         raise SystemExit(
             f"Could not reach SLIMS at {config['SLIMS_URL']!r}: {error}\n"
