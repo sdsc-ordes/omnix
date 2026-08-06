@@ -121,3 +121,19 @@ details summary { cursor: pointer; color: var(--text-secondary); }
 /* clickable summary cards */
 .card.link { display: block; color: inherit; }
 .card.link:hover { border-color: var(--accent); text-decoration: none; }
+
+
+/* linked content (detail) */
+.linked-group { border-top: 1px solid var(--grid); }
+.linked-group:first-of-type { border-top: 0; }
+.linked-group > summary { padding: 0.4rem 0; font-weight: 600; color: var(--text-primary); }
+.linked-group > summary .sub { margin-left: 0.3rem; }
+.linked-group .table-wrap {
+  margin: 0.2rem 0 0.7rem;
+  max-height: 18rem;      /* ~8 rows, then scrolls */
+  overflow-y: auto;
+}
+.linked-group .table-wrap th {
+  box-shadow: inset 0 -1px 0 var(--grid);
+  z-index: 1;
+}

@@ -285,8 +285,11 @@ _FALLBACK = Kind(
     ),
 )
 
-#: Everything that gets a SQL view (visible + fallback).
+# Everything that gets a SQL view (visible + fallback).
 ALL_KINDS: tuple[Kind, ...] = (*KINDS, _FALLBACK)
+
+# Kinds shown as "linked content" on a tumor / experiment detail page.
+LINKED_KIND_SLUGS: tuple[str, ...] = ("mice", "assays")
 
 BY_SLUG: dict[str, Kind] = {k.slug: k for k in ALL_KINDS}
 BY_VIEW: dict[str, Kind] = {k.view: k for k in ALL_KINDS}
@@ -299,3 +302,7 @@ def kind_for_content_type(content_type: str | None) -> Kind:
             if content_type in k.include_types:
                 return k
     return _FALLBACK
+
+
+def linked_kinds() -> tuple[Kind, ...]:
+    return tuple(BY_SLUG[s] for s in LINKED_KIND_SLUGS)

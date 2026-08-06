@@ -101,7 +101,7 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
             kind=kind,
             row=row,
             provenance=store.provenance_for_content(conn, pk),
-            linked=store.linked_by_mammoid(conn, base["mammoid"], exclude_pk=pk),
+            linked=store.linked_content_by_kind(conn, row["pk"]) if kind.slug == "tumors" else [],
             raw=_raw(base),
             slims_base_url=SLIMS_BASE_URL,
         )

@@ -70,6 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_link_run        ON runstep_content(exp_run_pk);
 """
 
 
+# Table to link tumor to experiment via mammoid (assumed one to one)
 _LINK_SCHEMA = """
 CREATE TABLE content_to_experiment (
     content_pk    INTEGER NOT NULL,
@@ -81,6 +82,7 @@ CREATE INDEX idx_ce_exp ON content_to_experiment(experiment_pk);
 """
 
 
+# Table to keep track of content provenance (relative to experiment walk)
 _PROVENANCE_VIEW = """
 CREATE VIEW IF NOT EXISTS content_provenance AS
 SELECT
@@ -122,7 +124,7 @@ CREATE TABLE IF NOT EXISTS content (
 def _select_sql(
     kind: content_types.Kind,
 ) -> str:
-    """Create SQL view for one Content Kind, projecting slims content table into typed columns."""
+    """Create SQL table for one Content Kind, projecting slims content table into typed columns."""
 
     base = [f"c.{col} AS {alias}" for alias, col in content_types.BASE_COLUMNS.items()]
     field_keys = {f.key for f in kind.fields}
@@ -142,7 +144,7 @@ def _select_sql(
 def _drop_object(conn: sqlite3.Connection, name: str) -> None:
     """Removes any SQL object (VIEW or TABLE) with provided name.
 
-    For backward compatibility.
+    For VIEW is included for backward compatibility.
     """
     row = conn.execute(
         "SELECT type FROM sqlite_master WHERE name = ?", (name,)
@@ -398,6 +400,11 @@ def get_one_in_view(
     return conn.execute(f"SELECT * FROM {kind.view} WHERE pk = ?", (content_pk,)).fetchone()
 
 
+
+#---------------------------------------------------------------
+#-------PROVENANCE AND LINKED CONTENT---------------------------
+#---------------------------------------------------------------
+
 def provenance_for_content(
     conn: sqlite3.Connection,
     content_pk: int
@@ -417,17 +424,59 @@ def provenance_for_content(
     ).fetchall()
 
 
-def linked_by_mammoid(
+_SIBLING_PKS = """
+    SELECT DISTINCT b.content_pk AS pk
+    FROM content_to_experiment a
+    JOIN content_to_experiment b ON b.experiment_pk = a.experiment_pk
+    WHERE a.content_pk = :pk AND b.content_pk <> a.content_pk
+"""
+
+
+_EXPERIMENT_PKS = """
+    SELECT DISTINCT content_pk AS pk
+    FROM content_to_experiment
+    WHERE experiment_pk = :experiment_pk
+"""
+
+def _linked_groups(
     conn: sqlite3.Connection,
-    mammoid: str | None,
-    exclude_pk: int | None = None
-) -> list[sqlite3.Row]:
-    """Other content sharing a sample id -- the mammoid drill-down, now over the
-    single content table. Content type tells the caller what each row is."""
-    if not mammoid:
-        return []
-    return conn.execute(
-        "SELECT pk, slims_id, content_type, mammoid FROM content "
-        "WHERE mammoid = ? COLLATE NOCASE AND pk IS NOT ? ORDER BY content_type, slims_id",
-        (mammoid.strip(), exclude_pk),
-    ).fetchall()
+    join_sql: str,
+    params: dict[str, Any],
+    limit_per_kind: int,
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for kind in content_types.linked_kinds():
+        rows = conn.execute(
+            f"SELECT v.* "
+            f"FROM {kind.view} v "
+            f"JOIN ({join_sql}) s ON s.pk = v.pk "
+            f"ORDER BY v.slims_id LIMIT :limit",
+            {**params, "limit": limit_per_kind },
+        ).fetchall()
+        if not rows:
+            continue
+        out.append({
+            "kind": kind,
+            "rows": rows[:limit_per_kind],
+        })
+    return out
+
+
+def linked_content_by_kind(
+    conn: sqlite3.Connection,
+    content_pk: int,
+    limit_per_kind: int = 500,
+) -> list[dict[str, Any]]:
+    """Mice and assays sharing an experiment with ``content_pk``.
+
+    One group per kind, in nav order, each shaped like a list page::
+
+        [{"kind": Kind, "rows": [Row, ...], "truncated": bool}, ...]
+
+    Rows come straight out of that kind's table, so ``kind.list_columns()`` /
+    ``kind.bool_columns()`` render them exactly as on ``/<slug>``. Each row
+    also carries ``shared_experiments``: the experiment name(s) linking it back.
+    """
+    return _linked_groups(
+        conn, _SIBLING_PKS, {"pk": content_pk}, limit_per_kind
+    )

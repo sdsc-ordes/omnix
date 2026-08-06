@@ -5,7 +5,7 @@
 <h1>
   {{ row['slims_id'] }}
   <span class="type-badge">{{ row['type'] }}</span>
-  <span class="sub">{{ row['mammoid'] or '(no sample id)' }}</span>
+  <span class="sub">{{ row['mammoid'] or '(no mammoid)' }}</span>
   {% if row["exp_guid"] %}
     <a class="out-link" href="{{ slims_base_url }}{{ row['exp_guid'] }}" target="_blank" rel="noopener noreferrer">SLIMS ↗</a>
   {% endif %}
@@ -48,6 +48,53 @@
             </tbody>
             </table></div>
     </section>
+{% endif %}
+
+
+{% if linked %}
+<section class="panel">
+  <h2>
+    Linked content
+    <span class="sub">
+      {%- for g in linked %}
+        {{ g.rows|length }}{% if g.truncated %}+{% endif %} {{ g.kind.title|lower }}
+        {%- if not loop.last %} · {% endif %}
+      {%- endfor -%}
+    </span>
+  </h2>
+
+  {% for g in linked %}
+    <details class="linked-group">
+      <summary>
+        {{ g.kind.title }}
+        <span class="sub">{{ g.rows|length }}{% if g.truncated %}+{% endif %}</span>
+      </summary>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>{% for col, label in g.kind.list_columns() %}<th>{{ label }}</th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            {% for r in g.rows %}
+              <tr>
+                {% for col, label in g.kind.list_columns() %}
+                  <td class="col-{{ col }}" title="{{ r[col] if r[col] is not none else '' }}">
+                    {% if col == 'slims_id' %}
+                      <a href="{{ url_for('content_detail', pk=r['pk']) }}"><span class="cell">{{ r[col] }}</span></a>
+                    {% else %}
+                      <span class="cell">{{ fmt_cell(g.kind, col, r[col]) }}</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% endfor %}
+</section>
 {% endif %}
 
 {% include "_raw.html" %}
