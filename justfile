@@ -63,3 +63,13 @@ snapshot *args:
 [group('general')]
 serve *args:
     uv run omnix serve "$@"
+
+# Rebuild the content type tables over the local snapshot (no VPN needed).
+[group('general')]
+rebuild *args:
+    uv run omnix rebuild "$@"
+
+# Dump all column values for each SLIMS table (Content, Experiment...).
+[group('general')]
+dump *args:
+    uv run omnix dump "$@"

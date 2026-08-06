@@ -124,7 +124,6 @@ def cmd_serve(args) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="omnix", description="SLIMS xenograft browser.")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Log the walk.")
     sub = parser.add_subparsers(dest="command")
 
     p_snap = sub.add_parser("snapshot", help="Pull SLIMS into the local SQLite snapshot.")
