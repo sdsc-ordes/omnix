@@ -14,21 +14,22 @@ from .client import connect, load_config
 
 logger = logging.getLogger(__name__)
 
-PROJ_NAME = "Human Primary Tumor Cells and BRCA MINDs"
-PROJ_PK = 76
+
+PROJ_PK_PER_NAME = {
+    "Human Primary Tumor Cells and BRCA MINDs": 76
+}
+
 
 def run(
-    db_path: Path | str = store.DEFAULT_DB,
-    project_name: str = PROJ_NAME,
-    project_pk: int | None = None,
+    db_path: Path | str,
+    project_name: str,
     limit: int | None = None,
 ) -> dict[str, int]:
     """Build a snapshot. Returns row counts per table.
 
     Args:
         db_path: Path to the SQLite database.
-        project_name: Project name referenced in slims Project table.
-        project_pk: skip the name-to-pk lookup and use this pk directly.
+        project_name: Name of the project to fetch.
         limit: Limit on the number of content items to fetch (for dev).
     """
     config = load_config()
@@ -44,13 +45,13 @@ def run(
         # 1. fetch all the content pks related to the project
         # 2. fetch and store the actual content
         mammoid_set = _phase_fetch_structure(
-            conn, slims, project_name, project_pk, limit=limit,
+            conn, slims, project_name, limit=limit,
         )
         _phase_fetch_content(conn, slims, mammoid_set, limit=limit)
         store.build_link_table(conn)
         store.build_type_tables(conn)
         result = store.counts(conn)
-        store.write_meta(conn, base_url, project_pk, project_name, result)
+        store.write_meta(conn, base_url, project_name, result)
         return result
     finally:
         conn.close()
@@ -60,7 +61,6 @@ def _phase_fetch_structure(
     conn,
     slims,
     project_name: str,
-    project_pk: int | None,
     limit: int | None = None,
 ) -> set:
     """Fetch the full project structure from SLIMS for a given project name.
@@ -69,10 +69,13 @@ def _phase_fetch_structure(
     -> Experiment Runsteps -> Experiment Runstep Content. Each record is fetched
     and stored directly in the database.
     """
-    if project_pk is None:
+    if project_name in PROJ_PK_PER_NAME:
+        project = extract.fetch_project(slims, project_name)
+        project_pk = PROJ_PK_PER_NAME[project_name]
+    else:
         project = extract.fetch_project(slims, project_name)
         project_pk = int(project.pk())
-    logger.info(f"Project {project_name!r} -> pk={project_pk}")
+        logger.info(f"Project {project_name!r} -> pk={project_pk}")
 
     # Experiments
     logger.info("Fetching experiment record(s).")
@@ -80,8 +83,6 @@ def _phase_fetch_structure(
     mammoid_set = set()
     for batch in extract.fetch_by_parents(slims, slims_spec.EXPERIMENT, [project_pk]):
         batch_exp_rows = [transform.experiment_row(r, project_pk) for r in batch]
-        if not batch_exp_rows:
-            continue
         store.write_rows(conn, batch_exp_rows, "experiment")
         mammoid_set.update([exp_row["name"] for exp_row in batch_exp_rows])
         exp_rows.extend(batch_exp_rows)
@@ -93,8 +94,6 @@ def _phase_fetch_structure(
     for batch in extract.fetch_by_parents(
         slims, slims_spec.EXPERIMENT_RUN, [r["pk"] for r in exp_rows]):
         batch_run_rows = [transform.run_row(r) for r in batch]
-        if not batch_run_rows:
-            continue
         store.write_rows(conn, batch_run_rows, "exp_run")
         run_rows.extend(batch_run_rows)
     experiment_by_run = {r["pk"]: r["experiment_pk"] for r in run_rows}
@@ -106,8 +105,6 @@ def _phase_fetch_structure(
     for batch in extract.fetch_by_parents(
         slims, slims_spec.EXPERIMENT_RUN_STEP, list(experiment_by_run)):
         batch_runstep_rows = [transform.runstep_row(r, experiment_by_run) for r in batch]
-        if not batch_runstep_rows:
-            continue
         store.write_rows(conn, batch_runstep_rows, "exp_runstep")
         runstep_rows.extend(batch_runstep_rows)
     run_by_step = {r["pk"]: r["exp_run_pk"] for r in runstep_rows}
@@ -139,7 +136,7 @@ def _phase_fetch_content(
     slims,
     mammoid_set,
     limit: int | None,
-) -> int:
+) -> None:
     """Fetch Tumor, Mouse, Assays content in two passes.
 
     First fetch tumor using mammoids. The mammoids is assumed to correspond
@@ -160,7 +157,7 @@ def _phase_fetch_content(
     pks -= fetched_pks
     if not pks:
         logger.info("No remaining content to fetch by pk.")
-        return 0
+        return
 
     logger.info(f"Fetching {len(pks)} Mouse/Assays content record(s) using pk"
         " from linked experiment record")
@@ -170,8 +167,6 @@ def _phase_fetch_content(
         store.write_rows(conn, rows, "content")
         total += len(rows)
         logger.info(f"  {total}/{len(pks)}")
-
-    return total
 
 
 def _reset(conn) -> None:

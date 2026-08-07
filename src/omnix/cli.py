@@ -82,7 +82,7 @@ def cmd_snapshot(args) -> None:
 
     config = load_config()
     try:
-        counts = snapshot_mod.run(args.db, limit=args.limit)
+        counts = snapshot_mod.run(args.db, project_name=args.project, limit=args.limit)
     except requests.exceptions.RequestException as error:
         raise SystemExit(
             f"Could not reach SLIMS at {config['SLIMS_URL']!r}: {error}\n"
@@ -125,10 +125,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="omnix", description="SLIMS xenograft browser.")
     sub = parser.add_subparsers(dest="command")
 
-    p_snap = sub.add_parser("snapshot", help="Pull SLIMS into the local SQLite snapshot.")
+    p_snap = sub.add_parser("snapshot", help="Pull MINDs project-specific SLIMS content into the local SQLite snapshot.")
     p_snap.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
     p_snap.add_argument("--project", default="Human Primary Tumor Cells and BRCA MINDs", help="Project name (prjc_name).")
-    p_snap.add_argument("--project-pk", default=76, type=int, help="Skip the name lookup.")
 
     p_snap.add_argument("--limit", type=int, default=None, help="Cap rows per content type (dev).")
     p_snap.set_defaults(func=cmd_snapshot)

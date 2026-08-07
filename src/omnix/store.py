@@ -54,7 +54,6 @@ CREATE TABLE IF NOT EXISTS runstep_content (
 
 CREATE TABLE IF NOT EXISTS snapshot_meta (
     source_url TEXT,
-    project_pk INTEGER,
     project_name TEXT,
     counts_json TEXT
 );
@@ -248,18 +247,16 @@ def write_rows(
 def write_meta(
     conn: sqlite3.Connection,
     source_url: str,
-    project_pk: int | None,
     project_name: str | None,
     result: dict[str, int]
 ) -> None:
     conn.execute(
-        "INSERT INTO snapshot_meta (source_url, project_pk, project_name, counts_json)"
-        " VALUES (?,?,?,?)",
+        "INSERT INTO snapshot_meta (source_url, project_name, counts_json)"
+        " VALUES (?,?,?)",
         (
             source_url,
-            project_pk,
             project_name,
-            json.dumps(result),
+            json.dumps(result)
         ),
     )
     conn.commit()
@@ -323,7 +320,6 @@ def get_meta(conn: sqlite3.Connection) -> dict[str, Any]:
         return {}
     return {
         "source_url": row["source_url"],
-        "project_pk": row["project_pk"],
         "project_name": row["project_name"],
         "counts": json.loads(row["counts_json"]),
     }
