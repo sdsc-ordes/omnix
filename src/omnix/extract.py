@@ -19,8 +19,12 @@ logger = logging.getLogger(__name__)
 
 
 # Page size for full fetches -- SLIMS pages via start/end row indices.
+MAX_N_PAGES = 10_000
 PAGE_SIZE = 1000
 BATCH_SIZE = 200
+
+if PAGE_SIZE <= 0:
+    raise ValueError(f"PAGE_SIZE must be strictly positive: {PAGE_SIZE}")
 
 
 def paged_fetch(
@@ -31,19 +35,19 @@ def paged_fetch(
 ) -> Iterator[Any]:
     """Yield every record matching pks with paging to avoid overloading SLIMS.
     """
-    start = 0
-    assert PAGE_SIZE > 0
-    end = start + PAGE_SIZE
-    while start < end:
+    for page_no in range(MAX_N_PAGES):
+        start = page_no * PAGE_SIZE
         criterion = is_one_of(table_key, keys)
-        page = slims.fetch(table, criterion, start=start, end=end)
+        page = slims.fetch(table, criterion, start=start, end=start + PAGE_SIZE)
         if len(page) == 0:
             return
         yield from page
         if len(page) < PAGE_SIZE:
             return
-        start = end
-        end = start + PAGE_SIZE
+    raise RuntimeError(
+        f"Fetching {table} reached maximum number of pages ({MAX_N_PAGES}); {table} "
+        "is larger than expected or there is an error with the SLIMS paging."
+    )
 
 
 def fetch_project(
