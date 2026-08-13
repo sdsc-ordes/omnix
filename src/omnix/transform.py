@@ -124,12 +124,9 @@ def experiment_row(
 
 def run_row(
     record: Any,
-    experiment_pk: int | None = None,
 ) -> dict[str, Any]:
-    """`experiment_pk` is read off the record itself; pass it only as a fallback
-    for instances where the fk is not returned in the column list."""
     c = _columns(record)
-    parent = int(_val(c, slims_spec.EXPERIMENT_RUN.parent_fk)) or experiment_pk
+    parent = int(_val(c, slims_spec.EXPERIMENT_RUN.parent_fk))
     return {
         "pk": record.pk(),
         "experiment_pk": parent,
@@ -140,14 +137,14 @@ def run_row(
 
 def runstep_row(
     record: Any,
-    experiment_by_run: dict[int, int] | None = None
+    experiment_by_run: dict[int, int]
 ) -> dict[str, Any]:
     c = _columns(record)
     run_pk = int(_val(c, slims_spec.EXPERIMENT_RUN_STEP.parent_fk))
     return {
         "pk": record.pk(),
         "exp_run_pk": run_pk,
-        "experiment_pk": (experiment_by_run or {}).get(run_pk),
+        "experiment_pk": experiment_by_run.get(run_pk),
         "name": _text(c, slims_spec.EXPERIMENT_RUN_STEP.name),
         "raw_json": json.dumps(raw_dump(record)),
     }
@@ -163,7 +160,7 @@ def content_link_row(
     Returns None when the link has no content pk (an empty step slot).
     """
     c = _columns(record)
-    content_pk = int(_val(c, slims_spec.RUN_STEP_CONTENT_FK_CONTENT))
+    content_pk = _val(c, slims_spec.RUN_STEP_CONTENT_FK_CONTENT)
     if content_pk is None:
         return None
     runstep_pk = int(_val(c, slims_spec.RUN_STEP_CONTENT.parent_fk))
@@ -174,7 +171,7 @@ def content_link_row(
             "runstep_pk": runstep_pk,
             "exp_run_pk": run_pk,
             "experiment_pk": experiment_by_run.get(run_pk),
-            "content_pk": content_pk,
+            "content_pk": int(content_pk),
         }
 
 

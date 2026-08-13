@@ -26,7 +26,6 @@ function main() {
     rm -rf ".yamllint.yaml" || true
     ln -s "tools/configs/yamllint/yamllint.yaml" ".yamllint.yaml"
 
-    
 }
 
 main "$@"

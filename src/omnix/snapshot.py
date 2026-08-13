@@ -70,7 +70,6 @@ def _phase_fetch_structure(
     and stored directly in the database.
     """
     if project_name in PROJ_PK_PER_NAME:
-        project = extract.fetch_project(slims, project_name)
         project_pk = PROJ_PK_PER_NAME[project_name]
     else:
         project = extract.fetch_project(slims, project_name)

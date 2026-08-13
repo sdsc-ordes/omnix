@@ -39,10 +39,10 @@ lint *args:
 build *args:
     uv build --out-dir "{{build_dir}}" "$@"
 
-# Test the project.
+# Test the project. Allow for no tests (pytest exit code 5)
 [group('general')]
 test *args:
-   uv run pytest "$@"
+    uv run pytest "$@" || [ $? -eq 5 ]
 
 # Run an executable.
 [group('general')]

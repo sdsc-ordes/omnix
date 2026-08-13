@@ -2,10 +2,10 @@
 _src_path: src/python
 module_name: mymodule
 project_authors:
--   email: alice.wonderland@sdsc.ethz.ch
+  - email: alice.wonderland@sdsc.ethz.ch
     first_name: Alice
     last_name: Wonderland
--   email: bob.wonderland@sdsc.ethz.ch
+  - email: bob.wonderland@sdsc.ethz.ch
     first_name: Bob
     last_name: Wonderland
 project_description: This a repository from a repository template.

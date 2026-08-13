@@ -1,101 +1,131 @@
-{% extends "base.html" %}
-{% block title %}omnix — {{ row['slims_id'] }}{% endblock %}
-{% block content %}
-<p class="crumb"><a href="{{ url_for('entity_list', slug=kind.slug) }}">← {{ kind.title }}</a></p>
+{% extends "base.html" %} {% block title %}omnix — {{ row['slims_id'] }}{%
+endblock %} {% block content %}
+<p class="crumb">
+  <a href="{{ url_for('entity_list', slug=kind.slug) }}">← {{ kind.title }}</a>
+</p>
 <h1>
   {{ row['slims_id'] }}
   <span class="type-badge">{{ row['type'] }}</span>
   <span class="sub">{{ row['mammoid'] or '(no mammoid)' }}</span>
   {% if row["exp_guid"] %}
-    <a class="out-link" href="{{ slims_base_url }}{{ row['exp_guid'] }}" target="_blank" rel="noopener noreferrer">SLIMS ↗</a>
-  {% endif %}
-  {% if row["omero_link"] %}
-    <a class="out-link" href="{{ row['omero_link'] }}" target="_blank" rel="noopener noreferrer">OMERO ↗</a>
+  <a
+    class="out-link"
+    href="{{ slims_base_url }}{{ row['exp_guid'] }}"
+    target="_blank"
+    rel="noopener noreferrer"
+    >SLIMS ↗</a
+  >
+  {% endif %} {% if row["omero_link"] %}
+  <a
+    class="out-link"
+    href="{{ row['omero_link'] }}"
+    target="_blank"
+    rel="noopener noreferrer"
+    >OMERO ↗</a
+  >
   {% endif %}
 </h1>
 <section class="panel">
   <h2>Fields</h2>
   <dl class="fields">
-    {% for f in kind.fields %}
-      {% if f.key not in ('slims_id', 'omero_link', 'exp_name', 'mammoid', 'exp_guid', 'on_omero') %}
-        <dt>{{ f.label }}</dt><dd>{{ fmt_cell(kind, f.key, row[f.key]) }}</dd>
-      {% endif %}
-    {% endfor %}
+    {% for f in kind.fields %} {% if f.key not in ('slims_id', 'omero_link',
+    'exp_name', 'mammoid', 'exp_guid', 'on_omero') %}
+    <dt>{{ f.label }}</dt>
+    <dd>{{ fmt_cell(kind, f.key, row[f.key]) }}</dd>
+    {% endif %} {% endfor %}
   </dl>
 </section>
 
 {% if provenance %}
-    <section class="panel">
-        <h2>Provenance <span class="sub">{{ provenance|length }} link{{ '' if provenance|length == 1 else 's' }}</span></h2>
-            <div class="table-wrap"><table>
-            <thead><tr><th>Experiment</th><th>Run</th></tr></thead>
-            <tbody>
-                {% for p in provenance %}
-                <tr>
-                    <td>
-                        {% if p['tumor_pk'] %}
-                            <a href="/content/{{ p['tumor_pk'] }}"
-                                title="{{ p['experiment_name'] }}">
-                                {{ p['experiment_name'] or p['experiment_pk'] }}
-                            </a>
-                        {% else %}
-                            {{ p['experiment_name'] or p['experiment_pk'] }}
-                        {% endif %}
-                    </td>
-                    <td>{{ p['exp_run_name'] or p['exp_run_pk'] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            </table></div>
-    </section>
-{% endif %}
-
-
-{% if linked %}
+<section class="panel">
+  <h2>
+    Provenance
+    <span class="sub"
+      >{{ provenance|length }} link{{ '' if provenance|length == 1 else 's'
+      }}</span
+    >
+  </h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Experiment</th>
+          <th>Run</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in provenance %}
+        <tr>
+          <td>
+            {% if p['tumor_pk'] %}
+            <a
+              href="/content/{{ p['tumor_pk'] }}"
+              title="{{ p['experiment_name'] }}"
+            >
+              {{ p['experiment_name'] or p['experiment_pk'] }}
+            </a>
+            {% else %} {{ p['experiment_name'] or p['experiment_pk'] }} {% endif
+            %}
+          </td>
+          <td>{{ p['exp_run_name'] or p['exp_run_pk'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %} {% if linked %}
 <section class="panel">
   <h2>
     Linked content
     <span class="sub">
-      {%- for g in linked %}
-        {{ g.rows|length }}{% if g.truncated %}+{% endif %} {{ g.kind.title|lower }}
-        {%- if not loop.last %} · {% endif %}
-      {%- endfor -%}
+      {%- for g in linked %} {{ g.rows|length }}{% if g.truncated %}+{% endif %}
+      {{ g.kind.title|lower }} {%- if not loop.last %} · {% endif %} {%- endfor
+      -%}
     </span>
   </h2>
 
   {% for g in linked %}
-    <details class="linked-group">
-      <summary>
-        {{ g.kind.title }}
-        <span class="sub">{{ g.rows|length }}{% if g.truncated %}+{% endif %}</span>
-      </summary>
+  <details class="linked-group">
+    <summary>
+      {{ g.kind.title }}
+      <span class="sub"
+        >{{ g.rows|length }}{% if g.truncated %}+{% endif %}</span
+      >
+    </summary>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>{% for col, label in g.kind.list_columns() %}<th>{{ label }}</th>{% endfor %}</tr>
-          </thead>
-          <tbody>
-            {% for r in g.rows %}
-              <tr>
-                {% for col, label in g.kind.list_columns() %}
-                  <td class="col-{{ col }}" title="{{ r[col] if r[col] is not none else '' }}">
-                    {% if col == 'slims_id' %}
-                      <a href="{{ url_for('content_detail', pk=r['pk']) }}"><span class="cell">{{ r[col] }}</span></a>
-                    {% else %}
-                      <span class="cell">{{ fmt_cell(g.kind, col, r[col]) }}</span>
-                    {% endif %}
-                  </td>
-                {% endfor %}
-              </tr>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            {% for col, label in g.kind.list_columns() %}
+            <th>{{ label }}</th>
             {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </details>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in g.rows %}
+          <tr>
+            {% for col, label in g.kind.list_columns() %}
+            <td
+              class="col-{{ col }}"
+              title="{{ r[col] if r[col] is not none else '' }}"
+            >
+              {% if col == 'slims_id' %}
+              <a href="{{ url_for('content_detail', pk=r['pk']) }}"
+                ><span class="cell">{{ r[col] }}</span></a
+              >
+              {% else %}
+              <span class="cell">{{ fmt_cell(g.kind, col, r[col]) }}</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
   {% endfor %}
 </section>
-{% endif %}
-
-{% include "_raw.html" %}
-{% endblock %}
+{% endif %} {% include "_raw.html" %} {% endblock %}

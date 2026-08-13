@@ -227,7 +227,8 @@ def _insert_many(
     """
     if not rows:
         return 0
-    cols = list(rows[0])
+
+    cols = [row for row in rows[0] if row]
     placeholders = ",".join(f":{c}" for c in cols)
     sql = f"INSERT OR REPLACE INTO {table} ({','.join(cols)}) VALUES ({placeholders})"
     conn.executemany(sql, rows)
