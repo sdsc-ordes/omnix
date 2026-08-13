@@ -3,11 +3,12 @@
 Subcommands:
 
     omnix snapshot     Pull SLIMS -> reshape -> write the local SQLite snapshot.
+    omnix rebuild      Rebuild content table after fetch time. No VPN, no internet needed.
     omnix serve        Launch the web app over an existing snapshot.
     omnix dump         Print raw Content records (debugging).
 
 `snapshot` and `dump` reach your SLIMS instance over the network (connect to its
-VPN first if it requires one). `serve` only reads the local snapshot file.
+VPN first if it requires one). `rebuild` and `serve` only reads the local snapshot file.
 
 SLIMS columns have cryptic names (e.g. ``cntn_fk_status``). Each column also
 carries a human-readable ``title`` ("Status"), a resolved ``displayValue``
@@ -15,8 +16,9 @@ carries a human-readable ``title`` ("Status"), a resolved ``displayValue``
 """
 
 import argparse
-
+from slims.criteria import not_equals
 from . import store
+
 
 # `serve` reads only the local snapshot, so the SLIMS/HTTP stack (`requests`,
 # `slims`, and the client/extract/snapshot modules) is imported lazily inside the
@@ -43,18 +45,23 @@ def describe_record(record) -> None:
     print()
 
 
-def cmd_dump(_args) -> None:
+def cmd_dump(args) -> None:
     import requests  # noqa: PLC0415 (lazy: pulls in the ssl-dependent slims stack)
 
+    from . import slims_spec  # noqa: PLC0415
     from .client import connect, load_config  # noqa: PLC0415
-    from .extract import CONTENT_TYPES, fetch_all  # noqa: PLC0415
 
     config = load_config()
     slims = connect(config)
+    tables = [
+        slims_spec.EXPERIMENT.table, slims_spec.EXPERIMENT_RUN.table,
+        slims_spec.EXPERIMENT_RUN_STEP.table, slims_spec.RUN_STEP_CONTENT.table,
+        slims_spec.CONTENT.table,
+    ]
     try:
-        for label, pk in CONTENT_TYPES.items():
-            print(f"--- {label} (cntn_fk_contentType={pk}) ---\n")
-            records = fetch_all(slims, pk, limit=5)
+        for table in tables:
+            print(f"--- {table} ---\n")
+            records = slims.fetch(table, not_equals("pk", ""), start=0, end=args.n)
             if not records:
                 print("  (no records)\n")
                 continue
@@ -75,7 +82,7 @@ def cmd_snapshot(args) -> None:
 
     config = load_config()
     try:
-        counts = snapshot_mod.run(args.db, limit=args.limit)
+        counts = snapshot_mod.run(args.db, project_name=args.project, limit=args.limit)
     except requests.exceptions.RequestException as error:
         raise SystemExit(
             f"Could not reach SLIMS at {config['SLIMS_URL']!r}: {error}\n"
@@ -83,6 +90,27 @@ def cmd_snapshot(args) -> None:
         ) from error
     summary = ", ".join(f"{n} {k}" for k, n in counts.items())
     print(f"Wrote snapshot to {args.db}: {summary}")
+
+
+def cmd_rebuild(args) -> None:
+    from pathlib import Path   # noqa: PLC0415
+    from . import store  # noqa: PLC0415
+
+    db = Path(args.db)
+    if not db.exists():
+        raise SystemExit(f"No snapshot at {db} -- run `omnix snapshot` first.")
+
+    conn = store.connect(db, read_only=False)
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM content").fetchone()[0]
+        if not n:
+            raise SystemExit(f"{db} has no content rows -- nothing to rebuild.")
+        print(f"(Re-)building content tables from {db} ({n} content rows)")
+        conn.execute("BEGIN")
+        store.build_type_tables(conn)
+        print("  " + "  ".join(f"{k}={v}" for k, v in store.counts(conn).items()))
+    finally:
+        conn.close()
 
 
 def cmd_serve(args) -> None:
@@ -97,10 +125,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="omnix", description="SLIMS xenograft browser.")
     sub = parser.add_subparsers(dest="command")
 
-    p_snap = sub.add_parser("snapshot", help="Pull SLIMS into the local SQLite snapshot.")
+    p_snap = sub.add_parser("snapshot", help="Pull MINDs project-specific SLIMS content into the local SQLite snapshot.")
     p_snap.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
+    p_snap.add_argument("--project", default="Human Primary Tumor Cells and BRCA MINDs", help="Project name (prjc_name).")
+
     p_snap.add_argument("--limit", type=int, default=None, help="Cap rows per content type (dev).")
     p_snap.set_defaults(func=cmd_snapshot)
+
+    p_rebuild = sub.add_parser("rebuild", help="Rebuild the content tables over an existing snapshot.")
+    p_rebuild.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
+    p_rebuild.set_defaults(func=cmd_rebuild)
 
     p_serve = sub.add_parser("serve", help="Run the web app over an existing snapshot.")
     p_serve.add_argument("--db", default=str(store.DEFAULT_DB), help="SQLite path.")
@@ -110,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_serve.set_defaults(func=cmd_serve)
 
     p_dump = sub.add_parser("dump", help="Print raw Content records (debugging).")
+    p_dump.add_argument("-n", type=int, default=1, help="Rows per table.")
     p_dump.set_defaults(func=cmd_dump)
 
     return parser

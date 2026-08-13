@@ -3,7 +3,9 @@
     <summary>All SLIMS columns ({{ raw|length }})</summary>
     <dl class="fields raw">
       {% for k, v in raw.items() %}
-        <dt>{{ k }}</dt><dd>{{ v }}</dd>
+      <dt>{{ v[0] }}</dt>
+      <dd>{{ v[1] }}</dd>
+      <dt>({{ k }})</dt>
       {% endfor %}
     </dl>
   </details>
