@@ -10,8 +10,20 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Sequence
+from dataclasses import dataclass
 
 from . import content_types
+
+
+@dataclass(frozen=True)
+class ListOptions:
+    filters: dict[str, str]
+    sort_by: str = "exp_name"
+    sort_order: str = "asc"
+    limit: int = 50
+    offset: int = 0
+
+
 
 DEFAULT_DB = Path(".omnix/snapshot.db")
 
@@ -354,25 +366,19 @@ def _where(kind: content_types.Kind, filters: dict[str, str]) -> tuple[str, list
 def list_entity(
     conn: sqlite3.Connection,
     entity: str,
-    filters: dict[str, str] | None = None,
-    sort_by="exp_name",
-    sort_order="ASC",
-    limit: int = 50,
-    offset: int = 0,
+    options: ListOptions,
 ) -> tuple[list[sqlite3.Row], int]:
     """(page rows, total matching count) for a filtered typed view."""
     kind = _kind(entity)
-    where, params = _where(kind, filters or {})
+    where, params = _where(kind, options.filters or {})
     total = conn.execute(f"SELECT COUNT(*) FROM {kind.view}{where}", params).fetchone()[0]
 
     possible_sort_columns = {col for col, _ in kind.list_columns()}
-    if sort_by not in possible_sort_columns:
-        sort_by = "exp_name"
-    if sort_order.upper() not in {"ASC", "DESC"}:
-        sort_order = "ASC"
+    sort_by = (options.sort_by if options.sort_by in possible_sort_columns else "exp_name")
+    sort_order = (options.sort_order.upper() if options.sort_order.upper() in {"ASC", "DESC"} else "ASC")
     rows = conn.execute(
         f"SELECT * FROM {kind.view}{where} ORDER BY {sort_by} {sort_order} LIMIT ? OFFSET ?",
-        [*params, limit, offset],
+        [*params, options.limit, options.offset],
     ).fetchall()
     return rows, total
 

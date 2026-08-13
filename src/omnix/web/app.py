@@ -74,7 +74,7 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
             }
             for col in kind.filter_columns()
         ]
-        rows, total, page, sort_by, sort_order = _page(conn, kind.view)
+        rows, total, page, sort_by, sort_order = _page(conn, kind)
         return render_template(
             "list.html",
             kind=kind,
@@ -91,7 +91,7 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
     def entity_rows(slug: str):
         kind = content_types.BY_SLUG.get(slug) or abort(404)
         conn = get_conn()
-        rows, total, page, sort_by, sort_order = _page(conn, kind.view)
+        rows, total, page, sort_by, sort_order = _page(conn, kind)
         return render_template(
             "_rows.html",
             kind=kind,
@@ -127,7 +127,8 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
         if fmt not in ("csv", "json"):
             abort(404)
         conn = get_conn()
-        rows, _ = store.list_entity(conn, kind.view, dict(request.args), limit=1_000_000, offset=0)
+        list_options = store.ListOptions(filters=request.args.to_dict(), limit=1_000_000, offset=0)
+        rows, _ = store.list_entity(conn, kind.view, list_options)
         drop = {"raw_json"}
         dicts = [{k: r[k] for k in r.keys() if k not in drop} for r in rows]
         if fmt == "json":
@@ -151,29 +152,27 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
 # --- helpers -----------------------------------------------------------------
 
 
-def _page(conn: sqlite3.Connection, view: str):
+def _page(conn: sqlite3.Connection, kind: content_types.Kind):
     """Read page + filters from the request, return (rows, total, page)."""
     try:
         page = max(1, int(request.args.get("page", 1)))
     except (TypeError, ValueError):
         page = 1
 
-    default_sort_by = "n_xenografts" if view == "tumors" else "exp_name"
-    default_order = "desc" if view == "tumors" else "asc"
-
-    sort_by = request.args.get("sort", default_sort_by)
-    sort_order = request.args.get("dir", default_order)
-
-    rows, total = store.list_entity(
-        conn,
-        view,
-        dict(request.args),
-        sort_by=sort_by,
-        sort_order=sort_order,
+    list_options = store.ListOptions(
+        filters=request.args.to_dict(),
+        sort_by=request.args.get("sort", kind.default_sort_by),
+        sort_order=request.args.get("dir", kind.default_sort_order),
         limit=PER_PAGE,
         offset=(page - 1) * PER_PAGE
     )
-    return rows, total, page, sort_by, sort_order
+
+    rows, total = store.list_entity(
+        conn,
+        kind.view,
+        list_options
+    )
+    return rows, total, page, list_options.sort_by, list_options.sort_order
 
 
 def _raw(row: sqlite3.Row) -> dict:
