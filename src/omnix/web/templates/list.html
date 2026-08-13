@@ -16,7 +16,7 @@
     <select name="{{ w.col }}">
       <option value="">any</option>
       {% for opt in w.options %}
-      <option value="{{ opt }}" {% if opt="" ="w.value" %}selected{% endif %}>
+      <option value="{{ opt }}" {% if opt == w.value %}selected{% endif %}>
         {{ opt }}
       </option>
       {% endfor %}
