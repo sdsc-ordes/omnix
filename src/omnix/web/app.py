@@ -74,19 +74,33 @@ def create_app(db_path: str | Path = store.DEFAULT_DB) -> Flask:
             }
             for col in kind.filter_columns()
         ]
-        rows, total, page = _page(conn, kind.view)
+        rows, total, page, sort_by, sort_order = _page(conn, kind.view)
         return render_template(
-            "list.html", kind=kind, widgets=widgets,
-            rows=rows, total=total, page=page, per_page=PER_PAGE,
+            "list.html",
+            kind=kind,
+            widgets=widgets,
+            rows=rows,
+            total=total,
+            page=page,
+            per_page=PER_PAGE,
+            sort_by=sort_by,
+            sort_order=sort_order
         )
 
     @app.route("/<slug>/rows")
     def entity_rows(slug: str):
         kind = content_types.BY_SLUG.get(slug) or abort(404)
         conn = get_conn()
-        rows, total, page = _page(conn, kind.view)
+        rows, total, page, sort_by, sort_order = _page(conn, kind.view)
         return render_template(
-            "_rows.html", kind=kind, rows=rows, total=total, page=page, per_page=PER_PAGE,
+            "_rows.html",
+            kind=kind,
+            rows=rows,
+            total=total,
+            page=page,
+            per_page=PER_PAGE,
+            sort_by=sort_by,
+            sort_order=sort_order
         )
 
     # --- content detail (any type) + drill-downs ---------------------------
@@ -143,10 +157,23 @@ def _page(conn: sqlite3.Connection, view: str):
         page = max(1, int(request.args.get("page", 1)))
     except (TypeError, ValueError):
         page = 1
+
+    default_sort_by = "n_xenografts" if view == "tumors" else "exp_name"
+    default_order = "desc" if view == "tumors" else "asc"
+
+    sort_by = request.args.get("sort", default_sort_by)
+    sort_order = request.args.get("dir", default_order)
+
     rows, total = store.list_entity(
-        conn, view, dict(request.args), limit=PER_PAGE, offset=(page - 1) * PER_PAGE
+        conn,
+        view,
+        dict(request.args),
+        sort_by=sort_by,
+        sort_order=sort_order,
+        limit=PER_PAGE,
+        offset=(page - 1) * PER_PAGE
     )
-    return rows, total, page
+    return rows, total, page, sort_by, sort_order
 
 
 def _raw(row: sqlite3.Row) -> dict:

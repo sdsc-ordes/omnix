@@ -355,6 +355,8 @@ def list_entity(
     conn: sqlite3.Connection,
     entity: str,
     filters: dict[str, str] | None = None,
+    sort_by="exp_name",
+    sort_order="ASC",
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[sqlite3.Row], int]:
@@ -362,8 +364,14 @@ def list_entity(
     kind = _kind(entity)
     where, params = _where(kind, filters or {})
     total = conn.execute(f"SELECT COUNT(*) FROM {kind.view}{where}", params).fetchone()[0]
+
+    possible_sort_columns = {col for col, _ in kind.list_columns()}
+    if sort_by not in possible_sort_columns:
+        sort_by = "exp_name"
+    if sort_order.upper() not in {"ASC", "DESC"}:
+        sort_order = "ASC"
     rows = conn.execute(
-        f"SELECT * FROM {kind.view}{where} ORDER BY slims_id LIMIT ? OFFSET ?",
+        f"SELECT * FROM {kind.view}{where} ORDER BY {sort_by} {sort_order} LIMIT ? OFFSET ?",
         [*params, limit, offset],
     ).fetchall()
     return rows, total

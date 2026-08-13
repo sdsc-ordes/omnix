@@ -17,7 +17,31 @@
       <thead>
         <tr>
           {% for col, label in kind.list_columns() %}
-          <th>{{ label }}</th>
+
+            {% if sort_by == col and sort_order == "asc" %}
+              {% set next_dir = "desc" %}
+            {% else %}
+              {% set next_dir = "asc" %}
+            {% endif %}
+
+          <th>
+            <a
+                href="?{{ qs(sort=col, dir=next_dir, page=1) }}"
+                hx-get="{{ url_for('entity_rows', slug=kind.slug) }}?{{ qs(sort=col, dir=next_dir, page=1) }}"
+                hx-target="#rows"
+                hx-push-url="true"
+            >
+              {{ label }}
+
+              {% if sort_by == col %}
+                {% if sort_order == "asc" %}
+                   ↓
+                {% else %}
+                   ↑
+                {% endif %}
+              {% endif %}
+            </a>
+          </th>
           {% endfor %}
         </tr>
       </thead>
