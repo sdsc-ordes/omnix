@@ -25,6 +25,8 @@
 .ruff_cache
 # Python Cache
 __pycache*
+# MacOS system file
+.DS_Store
 
 # Config files which are linked.
 .prettierrc.yaml
