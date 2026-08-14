@@ -53,9 +53,10 @@ def test_detail_pages_render(app, client, kind):
         rows, _ = store.list_entity(
             conn,
             kind.view,
-            {},
-            limit=1,
-            offset=0,
+            store.ListOptions(
+                filters={},
+                limit=1,
+                offset=0)
         )
     finally:
         conn.close()
