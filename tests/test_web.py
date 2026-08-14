@@ -1,6 +1,8 @@
 # tests/test_web.py
 
 import pytest
+import shutil
+from pathlib import Path
 
 from omnix import content_types, store
 
@@ -8,8 +10,24 @@ from omnix.web.app import create_app
 
 
 @pytest.fixture
-def app():
-    app = create_app()
+def test_db(tmp_path):
+    source = Path("tests/data/test.db")
+    tmp_db_path = tmp_path / "tmp.db"
+
+    shutil.copy(source, tmp_db_path)
+
+    # Rebuild type tables in case model changed
+    conn = store.connect(tmp_db_path)
+    store.build_type_tables(conn)
+    conn.close()
+
+    return tmp_db_path
+
+
+
+@pytest.fixture
+def app(test_db):
+    app = create_app(test_db)
     app.config["TESTING"] = True
     return app
 
@@ -46,8 +64,8 @@ def test_list_pages_render(client, kind):
     content_types.KINDS,
     ids=lambda kind: kind.slug,
 )
-def test_detail_pages_render(app, client, kind):
-    conn = store.connect(app.config["DB_PATH"], read_only=True)
+def test_detail_pages_render(client, kind, test_db):
+    conn = store.connect(test_db, read_only=True)
 
     try:
         rows, _ = store.list_entity(
