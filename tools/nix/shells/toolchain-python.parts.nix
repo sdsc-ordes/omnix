@@ -26,6 +26,7 @@
           # pretty involved to setup a python environment.
           languages.python = {
             enable = true;
+            venv.enable = true;
 
             # Heavy modules relying (CYTHON, ext. shared libraries etc)
             # should be built by Nix.
