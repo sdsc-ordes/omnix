@@ -221,6 +221,8 @@ class Kind:
     include_types: tuple[str, ...] = ()
     exclude_types: tuple[str, ...] = ()
     hidden: bool = False  # built as a view but kept out of the nav
+    default_sort_by: str = "exp_name"
+    default_sort_order: str = "asc"
 
     def where_clause(self) -> str:
         if self.include_types:
@@ -265,6 +267,8 @@ def _compile(entry: dict) -> Kind:
         title=entry["title"],
         fields=tuple(_compile_field(f) for f in entry["fields"]),
         include_types=tuple(entry.get("types", ())),
+        default_sort_by="n_xenografts" if slug == "tumors" else "exp_name",
+        default_sort_order="desc" if slug == "tumors" else "asc"
     )
 
 
@@ -282,8 +286,11 @@ _FALLBACK = Kind(
     fields=(
         Field("slims_id", "ID", content_col="slims_id", in_list=True),
         Field("assay_type", "Type", content_col="content_type", in_list=True, filterable=True),
-        Field("mammoid", "Sample", content_col="mammoid", in_list=True, filterable=True),
+        Field("mammoid", "Mammoid", content_col="mammoid", in_list=True, filterable=True),
+        Field("exp_name", "Exp. Name", derived="exp_name", in_list=True, filterable=True),
     ),
+    default_sort_by="exp_name",
+    default_sort_order="asc"
 )
 
 # Everything that gets a SQL view (visible + fallback).

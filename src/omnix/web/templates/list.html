@@ -15,11 +15,11 @@
     {% if w.options %}
     <select name="{{ w.col }}">
       <option value="">any</option>
-      {% for opt in w.options %}
-      <option value="{{ opt }}" {% if opt="" ="w.value" %}selected{% endif %}>
-        {{ opt }}
-      </option>
-      {% endfor %}
+      {% for opt in w.options %} {% if opt == w.value %}
+      <option value="{{ opt }}" selected>{{ opt }}</option>
+      {% else %}
+      <option value="{{ opt }}">{{ opt }}</option>
+      {% endif %} {% endfor %}
     </select>
     {% else %}
     <input
